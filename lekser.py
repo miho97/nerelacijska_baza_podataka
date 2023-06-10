@@ -9,14 +9,14 @@ class T(TipoviTokena):
 
     MATCH, WITH, WHERE, CALL = 'match','with','where','call'
     RETURN,AS = 'return','as'
+
     OPEN, CLOSED, COLON, SEMICOLON = '(),;'
+    COPEN, CCLOSED = '}{'
     PLUS, PUTA, = '+*'
 
-    #class GRAF(Token):...
     class NODE(Token):... 
-    #class NEIGHBOURS(Token):...
+    #class KEYWORD(Token):pass
 
-    #class TIP(Token):...
 
 
 
@@ -32,20 +32,36 @@ class T(TipoviTokena):
 ##  D(A,B);
 
 @lexer
-def program(lex):
+def lekser(lex):
     for znak in lex:
         ## mala slova sacuvati za for petlju itd
         if znak.isspace(): 
             lex.zanemari()
         if znak.isalpha and znak.isupper():   
-            if lex > str.isalpha: 
-                yield lex.token(T.NODE)
+            if lex > str.isalpha:
+                lex * str.isalpha 
+                if lex.sadržaj == 'MATCH':
+                    yield lex.token(T.MATCH)
+                elif lex.sadržaj == 'WITH':
+                    yield lex.token(T.WITH)
+                elif lex.sadržaj == 'WHERE':
+                    yield lex.token(T.WHERE)
+                elif lex.sadržaj == 'CALL':
+                    yield lex.token(T.CALL)
+                elif lex.sadržaj == 'RETURN':
+                    yield lex.token(T.RETURN)
+                elif lex.sadržaj == 'AS':
+                    yield lex.token(T.AS)
+                else:
+                    raise lex.greška('Naredba nije leksički podržana')
+
             elif lex > str.isdecimal:
                 prvo = next(lex)
                 if prvo != '0': 
                     lex * str.isdecimal
                 yield lex.token(T.NODE)
             else: yield lex.token(T.NODE)
+         
        
         elif znak == '(':
             yield lex.token(T.OPEN)
@@ -55,12 +71,11 @@ def program(lex):
             yield lex.token(T.CLOSED)
         elif znak == ';':
             yield lex.token(T.SEMICOLON)
-        elif znak == '[':   ## jednolinijski komentari neka budu oznaceni sa [[, ako ko smisli bolji znak koji zaseban nema znacenje minjamo
-            lex >> '['
+        elif znak == '/':   ## jednolinijski komentari neka budu oznaceni sa //
+            lex >> '/'
             lex - '\n'
             lex.zanemari()
-        else:
-            yield lex.literal(T)
+
         
         """
         elif znak == '(':
@@ -74,10 +89,17 @@ def program(lex):
                 yield lex.token()
         """
 
-ulaz = 'A12(B,C,E),B(),C(F)[[\nF(G,A,H,I)'
+#ulaz = 'A12(B,C,E),B(),C(F)//par nodeova grafa su dodani\n  F(G,A,H,I)'
 #ulaz = 'A1B2'
 #ulaz = 'ABCDEF'
-program( ulaz )
+#ulaz = 'MATCH A RETURN A'
+ulaz = '''
+
+MATCH A RETURN A
+B(C,D,E),D(E),G(H,A,I,J);
+
+'''
+lekser( ulaz )
 
 ##ulaz2 = 'A23sd'
 ##program(ulaz2)
