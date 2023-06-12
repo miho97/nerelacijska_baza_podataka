@@ -3,8 +3,16 @@ BESKONTEKSTNA GRAMATIKA
 
 trebamo napisati beskontekstnu gramatiku
 
-program  ->  
-
+## pocetna BKG
+--------------
+program -> main |  funkcija program         # tu mozemo dodat proizvoljno mnogo funkcija prije ulaska u main
+funkcija -> ime OPEN parametri CLOSED  VOPEN TIJELO VCLOSED         # klasicna definicija funkcije
+parametri -> ime  |  parametri COLON ime
+TIJELO   ->  deklaracija TIJELO | NAREDBA
+main  -> deklaracija main | NAREDBA main | NAREDBA
+NAREDBA  ->  petlja  |  grananje  | ....
+petlja   ->  for VOPEN  NAREDBA VCLOSED
+for   ->  FOR OPEN IME# EQUAL BROJ SEMICOLON IME# LESS BROJ SEMICOLON CLOSED
 
 
 
@@ -29,7 +37,7 @@ najkraci( graf A){
 
 }
 
-program(){
+main(){
 
 
 
