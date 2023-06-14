@@ -22,7 +22,9 @@ class T(TipoviTokena):
     EEQUAL = '=='
     PLUSJ = '+='
 
-    class NODE(Token):... 
+    class NODE(Token):
+        def vrijednost(a,b):
+            return zip(rt.mem[a], rt.mem[b])
     class IME(Token):
         def vrijednost(t): return rt.mem[t]
     class BROJ(Token):
@@ -140,7 +142,7 @@ def lekser(lex):
 
 ## start -> naredbe naredba
 ## naredbe -> '' |  naredbe naredba
-## naredba -> ispis | unos
+## naredba -> ispis | unos |  petlja
 
 class P(Parser):
 
@@ -155,6 +157,8 @@ class P(Parser):
             return p.ispis()
         if p > T.IME:
             return p.unos()
+        if p > T.FOR:
+            return p.petlja()
         
     def unos(p):
         if ime := p >= T.IME:
@@ -173,14 +177,59 @@ class P(Parser):
         p >= T.CLOSED
         return Ispis(varijable)
 
+    def petlja(p):
+        krivo = SemantičkaGreška('greška u inicijalizaciji for petlje')
+        p >= T.FOR
+        p >= T.OPEN
+        if ime := p >= T.IME:
+            print("okej")
+        p >= T.EQUAL
+        if donja_ograda := p>= T.BROJ:
+            print("Broj")
+        p >= T.SEMICOLON
+        if gornja_ograda := p >= T.BROJ: print("Okej")
+        p >= T.SEMICOLON
+        if (p >> T.IME) != ime: raise krivo
+        if p >= T.PLUSJ: inkrement = p >> T.BROJ
+        p >> T.CLOSED
+
+        if p >= T.COPEN:
+            blok = []
+            while not p >= T.CCLOSED:
+                blok.append(p.naredba())
+        else:
+            blok = [p.naredba()]
+        
+        return Petlja(ime, donja_ograda, gornja_ograda, inkrement, blok)
+
+class Petlja(AST):
+    ime: 'IME'
+    donja_ograda: 'BROJ'
+    gornja_ograda: 'BROJ'
+    inkrement: 'BROJ'
+    blok: 'naredba*'
+
+    def izvrši(petlja):
+        iter = petlja.ime
+        rt.mem[iter] = petlja.donja_ograda.vrijednost()
+        inc = petlja.inkrement.vrijednost(); 
+
+        while( rt.mem[iter] < petlja.gornja_ograda.vrijednost()):
+
+            for naredba in petlja.blok: 
+                naredba.izvrši()
+            rt.mem[petlja.ime] += inc
+        
+
 
 class Program(AST):
-    deklaracije: 'deklaracija*'
+    naredbe: 'naredbaa*'
 
     def izvrši(program):
         rt.mem = Memorija()
-        for deklaracija in program.deklaracije:
-            deklaracija.izvrši()
+        for naredba in program.naredbe:
+            naredba.izvrši()
+
 class Unos(AST):
     ime: 'IME'
     broj: 'BROJ'
@@ -202,6 +251,11 @@ ulaz=('''
 
     x = 5
     PRINT(x)
+    for( x=5; 8; x+=1){
+        PRINT(x)
+    }
+    y = 1
+    PRINT(y)
 ''')
 lekser(ulaz)
 prikaz( kod := P(ulaz))
