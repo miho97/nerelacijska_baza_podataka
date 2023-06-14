@@ -139,26 +139,56 @@ def lekser(lex):
 
 
 ## simple cfg:
-
+## program -> start  | funkcija program
+## funkcija -> ime OPEN parametri CLOSED COPEN naredbe CCLOSED
+## parametri -> ime | parametri COLON ime
 ## start -> naredbe naredba
 ## naredbe -> '' |  naredbe naredba
 ## naredba -> ispis | unos |  petlja
 
-class P(Parser):
+## to zelimo prosiriti na nacin da zelimo omoguciti dodavanje funkcija
 
+class P(Parser):
+    def program(p):
+        p.funkcije = Memorija( redefinicija=False)
+        while not p >= T.MAIN:
+            funkcija = p.funkcija()
+            p.funkcije[funkcija.ime] = funkcija
+        return p.funkcije
+    
+    def ime(p) -> 'IME': return p >> T.IME
+
+    def parametri(p) -> 'IME*':
+        p >= T.OPEN
+        if p >= T.CLOSED: return []
+        params = [p.ime]
+        while p >> T.COLON:
+            if varijabla := p >= T.IME:
+                params.append( varijabla)
+        return params
+    
+    def funkcija(p) -> 'Funkcija':
+        atributi = p.imef, p.parametrif = p.ime(), p.parametri()
+        p >> T.COPEN
+        nesto = Funkcija(*atributi, p.naredba())
+        p >> T.CCLOSED
+        return nesto
+    
     def start(p):
         naredbe = []
         while not p > KRAJ:
             naredbe.append(p.naredba())
-        return Program(naredbe)
+        return Start(naredbe)
     
     def naredba(p):
         if p > T.PRINT:
             return p.ispis()
-        if p > T.IME:
-            return p.unos()
-        if p > T.FOR:
+   
+        elif p > T.FOR:
             return p.petlja()
+        else: 
+            p >= T.IME
+            return p.unos()
         
     def unos(p):
         if ime := p >= T.IME:
@@ -221,9 +251,10 @@ class Petlja(AST):
             rt.mem[petlja.ime] += inc
         
 
+class Funkcija(AST):...
 
-class Program(AST):
-    naredbe: 'naredbaa*'
+class Start(AST):
+    naredbe: 'naredba*'
 
     def izvrši(program):
         rt.mem = Memorija()
@@ -249,6 +280,10 @@ class Ispis(AST):
 
 ulaz=('''
 
+succ(x){
+    PRINT(x)
+}
+main()
     x = 5
     PRINT(x)
     for( x=5; 8; x+=1){
