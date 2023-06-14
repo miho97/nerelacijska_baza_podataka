@@ -138,36 +138,42 @@ def lekser(lex):
 
 ## simple cfg:
 
-## start -> deklaracije deklaracija
-## deklaracije -> '' |  deklaracije deklaracija
-## deklaracija -> ispis
+## start -> naredbe naredba
+## naredbe -> '' |  naredbe naredba
+## naredba -> ispis | unos
+
 class P(Parser):
+
     def start(p):
-        deklaracije = []
+        naredbe = []
         while not p > KRAJ:
-            deklaracije.append(p.deklaracija())
-        return Program(deklaracije)
-    #'''
-    def deklaracija(p):
-        lista = []
+            naredbe.append(p.naredba())
+        return Program(naredbe)
+    
+    def naredba(p):
+        if p > T.PRINT:
+            return p.ispis()
+        if p > T.IME:
+            return p.unos()
+        
+    def unos(p):
         if ime := p >= T.IME:
-            lista.append(ime)
+            print( "Unijeli smo ime")
         p >= T.EQUAL
         if broj := p >= T.BROJ:
-            lista.append(broj)
-        if p>= T.PRINT:
-            p.ispis()
-        return Deklaracija(ime,broj)
-    #'''
+            print( "Unesen je broj")
+        return Unos(ime,broj)
+
     def ispis(p):
-        varijable = []
         p >= T.PRINT
+        varijable = []
         p >= T.OPEN
-        if varijabla := p >= T.IME: 
+        if varijabla := p >= T.IME:
             varijable.append(varijabla)
         p >= T.CLOSED
         return Ispis(varijable)
-    
+
+
 class Program(AST):
     deklaracije: 'deklaracija*'
 
@@ -175,34 +181,28 @@ class Program(AST):
         rt.mem = Memorija()
         for deklaracija in program.deklaracije:
             deklaracija.izvrši()
-
-class Deklaracija(AST):
+class Unos(AST):
     ime: 'IME'
     broj: 'BROJ'
 
-    def izvrši(x):
-        name = x.ime
-        rt.mem[name] = x.broj.vrijednost()
-
+    def izvrši(unos):
+        name = unos.ime
+        rt.mem[name] = unos.broj.vrijednost()
 
 class Ispis(AST):
     varijable: 'IME*'
-
+    
     def izvrši(ispis):
-        print(" usli u izvrsi")
         for varijabla in ispis.varijable:
-            #rt.mem[varijabla.ime] = 
-            print( varijabla.vrijednost(), end =' ')
-            print("tu smo")
+            print(varijabla.vrijednost(), end='')
+        print()
 
 
-ulaz = '''
+ulaz=('''
 
     x = 5
     PRINT(x)
-
-'''
+''')
 lekser(ulaz)
-
 prikaz( kod := P(ulaz))
 kod.izvrši()
