@@ -151,9 +151,12 @@ def lekser(lex):
 class P(Parser):
     def program(p):
         p.funkcije = Memorija( redefinicija=False)
-        while not p >= T.MAIN:
+        provjera = True
+        while not p >= T.MAIN and provjera == True:
             funkcija = p.funkcija()
             p.funkcije[funkcija.ime] = funkcija
+            provjera = False
+        if provjera == True: return p.start()
         return p.funkcije
     
     def ime(p) -> 'IME': return p >> T.IME
@@ -251,7 +254,13 @@ class Petlja(AST):
             rt.mem[petlja.ime] += inc
         
 
-class Funkcija(AST):...
+class Funkcija(AST):
+    ime: 'IME'
+    parametri: 'IME*'
+    tijelo: 'naredba'
+    def pozovi( funkcija, argumenti):
+        lokalni = Memorija(zip(funkcija.parametri, argumenti))
+        funkcija.tijelo.izvrši(mem = lokalni, unutar = funkcija)
 
 class Start(AST):
     naredbe: 'naredba*'
