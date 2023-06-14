@@ -91,8 +91,8 @@ def lekser(lex):
                     yield lex.token(T.FOR)
                 elif lex.sadržaj == 'if':
                     yield lex.token(T.IF)
-                #else:
-                #    yield lex.literal(T)
+                else:
+                    yield lex.token(T.IME)
             else:
                 yield lex.token(T.IME)
 
@@ -303,4 +303,4 @@ main()
 ''')
 lekser(ulaz)
 prikaz( kod := P(ulaz))
-kod.izvrši()
+#kod.izvrši()
