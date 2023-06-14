@@ -24,7 +24,7 @@ class T(TipoviTokena):
 
     class NODE(Token):... 
     class IME(Token):
-        def vrijednost(t): return rt.symtab[t]
+        def vrijednost(t): return rt.mem[t]
     class BROJ(Token):
         def vrijednost(t): return int(t.sadržaj)
     #class KEYWORD(Token):pass
@@ -103,6 +103,8 @@ def lekser(lex):
             yield lex.token(T.COLON)
         elif znak == ')':
             yield lex.token(T.CLOSED)
+        elif znak == '=':
+            yield lex.token(T.EQUAL)
         elif znak == '{':
             yield lex.token(T.COPEN)
         elif znak == '}':
@@ -134,67 +136,53 @@ def lekser(lex):
 
 
 
-## ISPROBAVANJE LEKSERA
+## simple cfg:
 
-#ulaz = 'A12(B,C,E),B(),C(F)//par nodeova grafa su dodani\n  F(G,A,H,I)'
-#ulaz = 'A1B2'
-#ulaz = 'ABCDEF'
-#ulaz = 'MATCH A RETURN A'
-ulaz = '''
-
-main(){
-    MATCH A RETURN A
-    for(i = 0; i < 10; i += 1)
-
-}
-'''
-#lekser( ulaz )
-
-ulaz2 = '''
-
-main()
-    x = 5
-    PRINT(x)
-
-'''
-lekser(ulaz2)
-
+## start -> deklaracije deklaracija
+## deklaracije -> '' |  deklaracije deklaracija
+## deklaracija -> ispis
 class P(Parser):
-    def program(p) -> 'Memorija':
-        p.funkcije = Memorija()  # redefinicija = False?
+    def start(p):
+        deklaracije = [p.deklaracija()]
         while not p > KRAJ:
-            funkcija = p.funkcija()
-            p.funkcije[funkcija.ime] = funkcija
-        #p.main()
-        return p.funkcije
-    def main(p) :
-        p.naredba()
-        return nenavedeno
-
-    def naredba(p):
-        p >= T.PRINT
-        return p.ispis()
+            deklaracije.append(p.deklaracija())
+        return Program(deklaracije)
+    #'''
+    def deklaracija(p):
+        lista = []
+        if ime := p >= T.IME:
+            lista.append(ime)
+        p >= T.EQUAL
+        if broj := p >= T.BROJ:
+            lista.append(broj)
+        p.ispis()
+        return Deklaracija(ime,broj)
+    #'''
     def ispis(p):
         varijable = []
         p >= T.PRINT
         p >= T.OPEN
-        if varijabla := p >= T.IME: varijable.append(varijabla)
+        if varijabla := p >= T.IME: 
+            varijable.append(varijabla)
         p >= T.CLOSED
         return Ispis(varijable)
-    def funkcija(p)-> 'Funkcija':
-        atributi = p.imef, p.parametrif = p.ime(), p.parametri()
-        p >= T.COPEN
-        nesto = Funkcija(*atributi, p.naredba())
-        p >= T.CLOSED
-        return nesto
-    #def parametri(p):...
+    
+class Program(AST):
+    deklaracije: 'deklaracija*'
 
+    def izvrši(program):
+        rt.mem = Memorija()
+        for deklaracija in program.deklaracije:
+            deklaracija.izvrši()
 
-class Funkcija(AST):
+class Deklaracija(AST):
     ime: 'IME'
-    parametri: 'IME*'
-    tijelo: 'naredba'
-#    def pozovi(funkcija, argumenti):
+    broj: 'BROJ'
+
+    def izvrši(x):
+        name = x.ime
+        rt.mem[name] = x.broj.vrijednost()
+
 
 class Ispis(AST):
     varijable: 'IME*'
@@ -202,11 +190,16 @@ class Ispis(AST):
     def izvrši(ispis):
         for varijabla in ispis.varijable:
             print( varijabla.vrijednost(), end =' ')
-        
-
-#class Parametri(AST):...
+            print("tu smo")
 
 
+ulaz = '''
 
-# A ( B[30], C[22])
-prikaz( P(ulaz2))
+    x = 5
+    PRINT(x)
+
+'''
+lekser(ulaz)
+
+prikaz( kod := P(ulaz))
+kod.izvrši()
