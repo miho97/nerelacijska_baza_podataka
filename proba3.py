@@ -182,9 +182,16 @@ class P(Parser):
    
         elif p > T.FOR:
             return p.petlja()
-        else: 
+        elif p > T.IME: 
             #p > T.IME
             return p.unos()
+        else:
+            p >> T.RETURN
+            if name := p >= T.IME:
+                print( "vratit cemo ime")
+            nesto = Vrati(name)
+            
+            return nesto
         
     def unos(p):
         if ime := p >= T.IME:
@@ -258,7 +265,10 @@ class Funkcija(AST):
 def izvrši(funkcije, *argv):
     print('Program je vratio:', funkcije['main'].pozovi(argv))
 
-
+class Vrati(AST):
+    nesto: 'IME'
+    def izvrši(p):
+        return p.vrijednost()
 
 class Start(AST):
     naredbe: 'naredba*'
@@ -289,8 +299,8 @@ ulaz=('''
 main(){
     x = 5
     PRINT(x)
-}
+    RETURN x}
 ''')
 lekser(ulaz)
 prikaz( kod := P(ulaz))
-#kod.izvrši()
+izvrši(kod)
