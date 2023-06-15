@@ -145,6 +145,7 @@ def lekser(lex):
 
 class P(Parser):
     def program(p):
+        rt.mem = Memorija()
         p.funkcije = Memorija( redefinicija=False)
         while not p > KRAJ:
             funkcija = p.funkcija()
@@ -189,7 +190,7 @@ class P(Parser):
             p >> T.RETURN
             if name := p >= T.IME:
                 print( "vratit cemo ime")
-            nesto = Vrati(name)
+            nesto = Vrati(name, name.vrijednost() )
             
             return nesto
         
@@ -199,6 +200,7 @@ class P(Parser):
         p >= T.EQUAL
         if broj := p >= T.BROJ:
             print( "Unesen je broj")
+            rt.mem[ime] = broj
         return Unos(ime,broj)
 
     def ispis(p):
@@ -242,7 +244,7 @@ class Petlja(AST):
     inkrement: 'BROJ'
     blok: 'naredba*'
 
-    def izvrši(petlja):
+    def izvrši(petlja, lokalni):
         iter = petlja.ime
         rt.mem[iter] = petlja.donja_ograda.vrijednost()
         inc = petlja.inkrement.vrijednost(); 
@@ -250,7 +252,7 @@ class Petlja(AST):
         while( rt.mem[iter] < petlja.gornja_ograda.vrijednost()):
 
             for naredba in petlja.blok: 
-                naredba.izvrši()
+                naredba.izvrši(lokalni)
             rt.mem[petlja.ime] += inc
         
 
@@ -260,36 +262,40 @@ class Funkcija(AST):
     tijelo: 'naredba'
     def pozovi( funkcija, argumenti):
         lokalni = Memorija(zip(funkcija.parametri, argumenti))
-        funkcija.tijelo.izvrši(lokalni, funkcija)
+        return (funkcija.tijelo.izvrši(lokalni))
 
 def izvrši(funkcije, *argv):
     print('Program je vratio:', funkcije['main'].pozovi(argv))
 
 class Vrati(AST):
     nesto: 'IME'
-    def izvrši(p):
-        return p.vrijednost()
+    vrijednost : 'vri'
+    def izvrši(p, lokalni):
+        print("povratak " , p.vrijednost)
+        return p.vrijednost.vrijednost()
 
 class Start(AST):
     naredbe: 'naredba*'
 
-    def izvrši(program):
-        rt.mem = Memorija()
+    def izvrši(program, lokalni):
+        ret_val = None
         for naredba in program.naredbe:
-            naredba.izvrši()
+            ret_val = naredba.izvrši(lokalni)
+            if(ret_val): 
+                return ret_val
 
 class Unos(AST):
     ime: 'IME'
     broj: 'BROJ'
 
-    def izvrši(unos):
+    def izvrši(unos, lokalni):
         name = unos.ime
         rt.mem[name] = unos.broj.vrijednost()
 
 class Ispis(AST):
     varijable: 'IME*'
     
-    def izvrši(ispis):
+    def izvrši(ispis, lokalni):
         for varijabla in ispis.varijable:
             print(varijabla.vrijednost(), end='')
         print()
@@ -303,6 +309,12 @@ f(x){
 main(){
     x = 5
     PRINT(x)
+    for(i = 1; 5; i+=1){
+        PRINT(i)}
+    RETURN x
+    // ovo ispod se nebi trebalo izvršit
+    y = 8
+    PRINT(y)
 }
 ''')
 lekser(ulaz)
