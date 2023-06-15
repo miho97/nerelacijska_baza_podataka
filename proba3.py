@@ -166,9 +166,9 @@ class P(Parser):
     def funkcija(p) -> 'Funkcija':
         atributi = p.imef, p.parametrif = p.ime(), p.parametri()
         p >> T.COPEN
-        nesto = Funkcija(*atributi, p.sve_naredbe())
-        p >> T.CCLOSED
-        return nesto
+        return Funkcija(*atributi, p.sve_naredbe())
+        #p >> T.CCLOSED
+        #return nesto
     
     def sve_naredbe(p):
         naredbe = []
@@ -293,4 +293,4 @@ main(){
 ''')
 lekser(ulaz)
 prikaz( kod := P(ulaz))
-kod.izvrši()
+#kod.izvrši()
