@@ -10,7 +10,7 @@ class T(TipoviTokena):
     MATCH, WITH, WHERE, CALL = 'MATCH','WITH','WHERE','CALL'
     RETURN,AS = 'RETURN','AS'
 
-    FOR, IF, MAIN, PRINT = 'for','if','main', 'print'
+    FOR, IF, PRINT = 'for','if', 'print'
 
     ULEFT ,URIGHT ='[]'
     DVOTOČKA = ':'
@@ -83,11 +83,7 @@ def lekser(lex):
         elif znak.isalpha and znak.islower():
             if lex > str.isalpha:
                 lex * str.isalpha
-                if lex.sadržaj == 'main':
-                    lex >> '('
-                    lex >> ')'
-                    yield lex.token(T.MAIN)
-                elif lex.sadržaj == 'for':
+                if lex.sadržaj == 'for':
                     yield lex.token(T.FOR)
                 elif lex.sadržaj == 'if':
                     yield lex.token(T.IF)
@@ -139,11 +135,10 @@ def lekser(lex):
 
 
 ## simple cfg:
-## program -> start  | funkcija program
+## program -> funkcija  | funkcija program
 ## funkcija -> ime OPEN parametri CLOSED COPEN naredbe CCLOSED
 ## parametri -> ime | parametri COLON ime
-## start -> naredbe naredba
-## naredbe -> '' |  naredbe naredba
+## naredbe -> naredba |  naredbe naredba
 ## naredba -> ispis | unos |  petlja
 
 ## to zelimo prosiriti na nacin da zelimo omoguciti dodavanje funkcija
@@ -151,13 +146,10 @@ def lekser(lex):
 class P(Parser):
     def program(p):
         p.funkcije = Memorija( redefinicija=False)
-        provjera = True
-        while not p >= T.MAIN and provjera == True:
+        while not p > KRAJ:
             funkcija = p.funkcija()
             p.funkcije[funkcija.ime] = funkcija
-            provjera = False
-        if provjera == True: return p.main()
-        return p.main()
+        return p.funkcije
     
     def ime(p) -> 'IME': return p >> T.IME
 
@@ -174,13 +166,13 @@ class P(Parser):
     def funkcija(p) -> 'Funkcija':
         atributi = p.imef, p.parametrif = p.ime(), p.parametri()
         p >> T.COPEN
-        nesto = Funkcija(*atributi, p.naredba())
+        nesto = Funkcija(*atributi, p.sve_naredbe())
         p >> T.CCLOSED
         return nesto
     
-    def main(p):
+    def sve_naredbe(p):
         naredbe = []
-        while not p > KRAJ:
+        while not p >= T.CCLOSED:
             naredbe.append(p.naredba())
         return Start(naredbe)
     
@@ -264,7 +256,7 @@ class Funkcija(AST):
         funkcija.tijelo.izvrši(mem = lokalni, unutar = funkcija)
 
 def izvrši(funkcije, *argv):
-    print('Program je vratio:', funkcije['program'].pozovi(argv))
+    print('Program je vratio:', funkcije['main'].pozovi(argv))
 
 
 
@@ -294,14 +286,10 @@ class Ispis(AST):
 
 
 ulaz=('''
-
-succ(x){
-    x = 2
-}
-
-main()
+main(){
     x = 5
     PRINT(x)
+}
 ''')
 lekser(ulaz)
 prikaz( kod := P(ulaz))
