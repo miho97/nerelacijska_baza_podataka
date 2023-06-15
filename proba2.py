@@ -156,7 +156,7 @@ class P(Parser):
             funkcija = p.funkcija()
             p.funkcije[funkcija.ime] = funkcija
             provjera = False
-        if provjera == True: return p.start()
+        if provjera == True: return p.main()
         return p.funkcije
     
     def ime(p) -> 'IME': return p >> T.IME
@@ -177,7 +177,7 @@ class P(Parser):
         p >> T.CCLOSED
         return nesto
     
-    def start(p):
+    def main(p):
         naredbe = []
         while not p > KRAJ:
             naredbe.append(p.naredba())
@@ -262,6 +262,11 @@ class Funkcija(AST):
         lokalni = Memorija(zip(funkcija.parametri, argumenti))
         funkcija.tijelo.izvrši(mem = lokalni, unutar = funkcija)
 
+def izvrši(funkcije, *argv):
+    print('Program je vratio:', funkcije['program'].pozovi(argv))
+
+
+
 class Start(AST):
     naredbe: 'naredba*'
 
@@ -288,18 +293,10 @@ class Ispis(AST):
 
 
 ulaz=('''
-
-succ(x){
-    PRINT(x)
-}
 main()
     x = 5
     PRINT(x)
-    for( x=5; 8; x+=1){
-        PRINT(x)
-    }
-    y = 1
-    PRINT(y)
+
 ''')
 lekser(ulaz)
 prikaz( kod := P(ulaz))
