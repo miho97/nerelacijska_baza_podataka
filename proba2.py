@@ -157,17 +157,18 @@ class P(Parser):
             p.funkcije[funkcija.ime] = funkcija
             provjera = False
         if provjera == True: return p.main()
-        return p.funkcije
+        return p.main()
     
     def ime(p) -> 'IME': return p >> T.IME
 
     def parametri(p) -> 'IME*':
         p >= T.OPEN
         if p >= T.CLOSED: return []
-        params = [p.ime]
-        while p >> T.COLON:
+        params = [p.ime()]
+        while p >= T.COLON:
             if varijabla := p >= T.IME:
                 params.append( varijabla)
+        p >= T.CLOSED
         return params
     
     def funkcija(p) -> 'Funkcija':
@@ -190,7 +191,7 @@ class P(Parser):
         elif p > T.FOR:
             return p.petlja()
         else: 
-            p >= T.IME
+            #p > T.IME
             return p.unos()
         
     def unos(p):
@@ -262,8 +263,8 @@ class Funkcija(AST):
         lokalni = Memorija(zip(funkcija.parametri, argumenti))
         funkcija.tijelo.izvrši(mem = lokalni, unutar = funkcija)
 
-def izvrši(funkcije, *argv):
-    print('Program je vratio:', funkcije['program'].pozovi(argv))
+#def izvrši(funkcije, *argv):
+#    print('Program je vratio:', funkcije['program'].pozovi(argv))
 
 
 
@@ -293,6 +294,11 @@ class Ispis(AST):
 
 
 ulaz=('''
+
+succ(x){
+    x = 2
+}
+
 main()
     x = 5
     PRINT(x)
@@ -300,4 +306,4 @@ main()
 ''')
 lekser(ulaz)
 prikaz( kod := P(ulaz))
-#kod.izvrši()
+kod.izvrši()
