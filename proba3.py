@@ -260,7 +260,7 @@ class Funkcija(AST):
     tijelo: 'naredba'
     def pozovi( funkcija, argumenti):
         lokalni = Memorija(zip(funkcija.parametri, argumenti))
-        funkcija.tijelo.izvrši(mem = lokalni, unutar = funkcija)
+        funkcija.tijelo.izvrši(lokalni, funkcija)
 
 def izvrši(funkcije, *argv):
     print('Program je vratio:', funkcije['main'].pozovi(argv))
@@ -296,10 +296,14 @@ class Ispis(AST):
 
 
 ulaz=('''
+f(x){
+    x = 1
+    RETURN x
+}
 main(){
     x = 5
     PRINT(x)
-    RETURN x}
+}
 ''')
 lekser(ulaz)
 prikaz( kod := P(ulaz))
