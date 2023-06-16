@@ -182,12 +182,14 @@ class P(Parser):
         p >> T.OPEN
         for i, parametar in enumerate(parametri):
             if i: p>> T.COLON
+            p >= T.IME
             arg.append(parametar)
         p >> T.CLOSED
         return arg
 
     def možda_poziv(p,ime) -> 'Poziv|ime':
         if ime in p.funkcije:
+        # if p.funkcije[ime] != nenavedeno:
             funkcija = p.funkcije[ime]
             return Poziv(funkcija, p.argumenti(funkcija.parametri))
         elif ime == p.imef:
@@ -212,6 +214,7 @@ class P(Parser):
             #p > T.IME
             return p.unos()
         elif p > T.CALL:
+            p >> T.CALL
             if name := p >= T.IME: print("procitali smo ime funkcije")
             return p.možda_poziv(name)
         else:
@@ -298,7 +301,7 @@ def izvrši(funkcije, *argv):
 class Poziv(AST):
     funkcija: 'Funkcija'
     argumenti: '?'
-    def vrijednost(poziv,lokalni):
+    def izvrši(poziv,lokalni):
         pozvana = poziv.funkcija
         argumenti = [a.vrijednost() for a in poziv.argumenti]
         return pozvana.pozovi(argumenti)
