@@ -170,7 +170,32 @@ class P(Parser):
         return Funkcija(*atributi, p.sve_naredbe())
         #p >> T.CCLOSED
         #return nesto
+    #def tipa(p,ime) :
+    #    if ime ^ T.IME: return p.aritm()
+    #    #elif ime ^ T.GIME: return p.gime()
+    #    else: assert False, f'Nepoznat tip od {ime}'
     
+    #def aritm(p):
+
+    def argumenti(p, parametri):
+        arg = []
+        p >> T.OPEN
+        for i, parametar in enumerate(parametri):
+            if i: p>> T.COLON
+            arg.append(parametar)
+        p >> T.CLOSED
+        return arg
+
+    def možda_poziv(p,ime) -> 'Poziv|ime':
+        if ime in p.funkcije:
+            funkcija = p.funkcije[ime]
+            return Poziv(funkcija, p.argumenti(funkcija.parametri))
+        elif ime == p.imef:
+            return Poziv(nenavedeno, p.argumenti(p.parametrif))
+        else: return ime
+    
+     
+
     def sve_naredbe(p):
         naredbe = []
         while not p >= T.CCLOSED:
@@ -186,6 +211,9 @@ class P(Parser):
         elif p > T.IME: 
             #p > T.IME
             return p.unos()
+        elif p > T.CALL:
+            if name := p >= T.IME: print("procitali smo ime funkcije")
+            return p.možda_poziv(name)
         else:
             p >> T.RETURN
             if name := p >= T.IME:
@@ -267,6 +295,15 @@ class Funkcija(AST):
 def izvrši(funkcije, *argv):
     print('Program je vratio:', funkcije['main'].pozovi(argv))
 
+class Poziv(AST):
+    funkcija: 'Funkcija'
+    argumenti: '?'
+    def vrijednost(poziv,lokalni):
+        pozvana = poziv.funkcija
+        argumenti = [a.vrijednost() for a in poziv.argumenti]
+        return pozvana.pozovi(argumenti)
+
+        
 class Vrati(AST):
     nesto: 'IME'
     vrijednost : 'vri'
@@ -311,10 +348,8 @@ main(){
     PRINT(x)
     for(i = 1; 5; i+=1){
         PRINT(i)}
+    CALL f(x)
     RETURN x
-    // ovo ispod se nebi trebalo izvršit
-    y = 8
-    PRINT(y)
 }
 ''')
 lekser(ulaz)
