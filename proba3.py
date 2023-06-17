@@ -264,7 +264,28 @@ class P(Parser):
                 print( "vratit cemo ime")
             return Vrati(name, param, mem, tip)
             
+    ## ova funkcija služi za update pojedine varijable
+    ## obzirom da ne možemo u ovoj fazi zaključiti koji je tip varijable kojoj nešto pridružujemo jer se ne čuva u globalnoj već u lokalnoj 
+    ## memoriji, a ime ne nosi informaciju u tipu varijable pojedine funkcije greška u pridruživanju bit će ona u runtimeu
     def azuriraj(p,param,mem): 
+        ime = p >> T.IME
+        p >> T.EQUAL
+        if p > T.CALL:
+            p >> T.CALL
+            vrijednost = p.unos_iz_funkcije(mem)
+            return Ažuriraj(ime, vrijednost, mem, pregledaj = False)
+        elif vrijednost := p >= T.BROJ:
+            return Ažuriraj(ime, vrijednost, mem, pregledaj = False)
+        elif drugo_ime := p >= T.IME:
+            return Ažuriraj(ime, drugo_ime, mem, pregledaj = True)
+        elif p >= T.OPEN:
+            ## tu treba prihvatiti i (1,2) i (x,y) i kombinacije
+            prva = p >> T.BROJ
+            p >> T.COLON
+            druga = p >> T.BROJ
+            p >> T.CLOSED
+            vrijednost = (prva, druga)
+            return Ažuriraj(ime, vrijednost, mem, pregledaj = False)
         return nenavedeno
         
     def unos(p,param,mem):
@@ -398,6 +419,33 @@ class Blok(AST):
             if(ret_val): 
                 return ret_val
 
+class Ažuriraj(AST):
+    ime : 'ime varijable'
+    drugo_ime : 'varijabla ili vrijednost koja se pridružuje'
+    mem : 'lokalna_memorija'
+    pregledaj : 'bool'
+
+    def izvrši(azuriraj):
+        if(azuriraj.ime.vrijednost() not in azuriraj.mem):
+            raise SemantičkaGreška('nije dozvoljena implicitna inicijalizacija varijable')
+        trenutacni_tip = azuriraj.mem[azuriraj.ime.vrijednost()]['tip']
+        if azuriraj.pregledaj: # znači da pokušavamo pridružiti varijablu
+            if azuriraj.drugo_ime in azuriraj.mem:
+                drugi_tip = azuriraj.mem[ azuriraj.drugo_ime]['tip']
+                if drugi_tip == trenutacni_tip:
+                    azuriraj.mem[azuriraj.ime]['vrijednost'] = azuriraj.mem[azuriraj.drugo_ime]['vrijednost']
+                else:
+                    raise SemantičkaGreška('varijable nisu istog tipa i ne postoji implicitni cast')
+            else:
+                raise SemantičkaGreška('varijabla koju pridružuješ nije instancirana')
+        else: ## pridruzujem novu varijablu
+            if isinstance(azuriraj.drugo_ime, tuple ) and trenutacni_tip ^ T.NODE:
+                azuriraj.mem[azuriraj.ime]['vrijednost'] = azuriraj.drugo_ime
+            elif azuriraj.drugo_ime ^ T.BROJ and trenutacni_tip ^ T.INT:
+                azuriraj.mem[azuriraj.ime]['vrijednost'] = azuriraj.drugo_ime
+            else:
+                raise SemantičkaGreška('varijabla i vrijednost nisu istog tipa')
+
 class Unos(AST):
     tip_var: 'TIP'
     ime: 'IME'
@@ -447,8 +495,11 @@ void main(){
     node C = B
     PRINT(C)
     int x = 2
-    int y = x
+    int y = 4
+    y = 3
     PRINT(y)
+    C = (5,6)
+    PRINT(C)
 }
 ''')
 lekser(ulaz)
