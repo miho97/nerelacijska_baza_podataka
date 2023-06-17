@@ -11,8 +11,10 @@ class T(TipoviTokena):
     RETURN,AS = 'RETURN','AS'
 
     FOR, IF, PRINT = 'for','if', 'print'
+    VOID,NODE, INT = 'void', 'node','int'   
 
     ULEFT ,URIGHT ='[]'
+
     DVOTOČKA = ':'
     ARROW = '->'
     LINE = '-'
@@ -22,11 +24,15 @@ class T(TipoviTokena):
     EEQUAL = '=='
     PLUSJ = '+='
 
-    class NODE(Token):
+    # node A = f( B )
+    # cuvanje koordinata vrhova grafa
+    class PAIR(Token):
         def vrijednost(a,b):
             return zip(rt.mem[a], rt.mem[b])
+        
     class IME(Token):
-        def vrijednost(t): return rt.mem[t]
+        def vrijednost(t): return t.sadržaj
+        #def izvrši(ime,lokalni): return rt.mem[ime]
     class BROJ(Token):
         def vrijednost(t): return int(t.sadržaj)
     #class KEYWORD(Token):pass
@@ -68,15 +74,16 @@ def lekser(lex):
                     yield lex.token(T.AS)
                 elif lex.sadržaj == 'PRINT':
                     yield lex.token(T.PRINT)
+
                 else:
                     raise lex.greška('Naredba nije leksički podržana')
 
             elif lex > str.isdecimal:
                 prvo = next(lex)
                 if prvo != '0': 
-                    lex * str.isdecimal
-                yield lex.token(T.NODE)
-            else: yield lex.token(T.NODE)
+                    lex * str.isdecimal      # A,B,C,D1,E23
+                yield lex.token(T.IME)
+            else: yield lex.token(T.IME)
 
         # ključne riječi oznančene isključivo malim slovima i imena varijabli, zasad neku su varijable a,b,c,x,y,z,...
             
@@ -87,11 +94,17 @@ def lekser(lex):
                     yield lex.token(T.FOR)
                 elif lex.sadržaj == 'if':
                     yield lex.token(T.IF)
+                elif lex.sadržaj == 'void':
+                    yield lex.token(T.VOID)
+                elif lex.sadržaj == 'int':
+                    yield lex.token(T.INT)
+                elif lex.sadržaj == 'pair':
+                    yield lex.token(T.PAIR)
                 else:
                     yield lex.token(T.IME)
             else:
                 yield lex.token(T.IME)
-
+#  (1,2) DA TREBA VRATITI node A = (5,6)
         elif znak == '+':
             if lex >= '=':
                 yield lex.token(T.PLUSJ)
@@ -145,7 +158,7 @@ def lekser(lex):
 
 class P(Parser):
     def program(p):
-        rt.mem = Memorija()
+        rt.mem = Memorija()  # GLOBALNA MEMORIJA AKO CE NAM TREBATI
         p.funkcije = Memorija( redefinicija=False)
         while not p > KRAJ:
             funkcija = p.funkcija()
@@ -154,20 +167,43 @@ class P(Parser):
     
     def ime(p) -> 'IME': return p >> T.IME
 
-    def parametri(p) -> 'IME*':
+    # pozivamo ju u dohvacanju parametara funkcije, vraca samo listu tipova
+    def parametri(p) -> 'lista value tip':
         p >= T.OPEN
-        if p >= T.CLOSED: return []
-        params = [p.ime()]
+        if p >= T.CLOSED: return {}
+        trenutni_tip = p.tip_parametra()
+
+        params = {}
+        trenutni_parametar = p >> { T.NODE, T.IME }
+        params[trenutni_parametar] = trenutni_tip
+
         while p >= T.COLON:
-            if varijabla := p >= T.IME:
-                params.append( varijabla)
-        p >= T.CLOSED
+            trenutni_tip = p.tip_parametra()
+            trenutni_parametar = p >> { T.NODE, T.IME }
+            params[trenutni_parametar] = trenutni_tip
+
+        p >> T.CLOSED
         return params
     
+    def tip_parametra(p) -> 'INT|NODE':
+        return p >> {T.INT, T.NODE}
+    
+    def tip_funkcije(p) -> 'INT|NODE|VOID':
+        return p >> {T.INT, T.NODE, T.VOID}
+
+
     def funkcija(p) -> 'Funkcija':
-        atributi = p.imef, p.parametrif = p.ime(), p.parametri()
+        #atributi = p.imef, p.parametrif = p.ime(), p.parametri()
+        atributi = p.tipf, p.imef, p.parametrif = p.tip_funkcije(), p.ime(), p.parametri()
+
         p >> T.COPEN
-        return Funkcija(*atributi, p.sve_naredbe())
+        lokalna_memorija_funkcije = Memorija()
+        for ime in p.parametrif:
+            tip_vrijednost = {'tip':p.parametrif[ime],'vrijednost':nenavedeno}
+            lokalna_memorija_funkcije[ime] = tip_vrijednost
+
+       
+        return Funkcija(*atributi, lokalna_memorija_funkcije,  p.sve_naredbe(p.tipf, p.parametrif, lokalna_memorija_funkcije))
         #p >> T.CCLOSED
         #return nesto
     #def tipa(p,ime) :
@@ -197,57 +233,75 @@ class P(Parser):
         else: return ime
     
      
-
-    def sve_naredbe(p):
+    # sve_naredbe kao parametar primaju tip fje i parametar fje i vraca AST tijela te funkcije
+    def sve_naredbe(p, tip, param, mem):
         naredbe = []
         while not p >= T.CCLOSED:
-            naredbe.append(p.naredba())
-        return Start(naredbe)
+            naredbe.append(p.naredba(tip, param, mem))
+        return Blok(naredbe)
     
-    def naredba(p):
+    def naredba(p, tip, param, mem):
         if p > T.PRINT:
-            return p.ispis()
+            return p.ispis(param, mem)
    
         elif p > T.FOR:
-            return p.petlja()
-        elif p > T.IME: 
+            return p.petlja(tip, param, mem)
+        elif p > {T.INT, T.NODE}: 
             #p > T.IME
-            return p.unos()
+            return p.unos(param, mem)
         elif p > T.CALL:
             p >> T.CALL
             if name := p >= T.IME: print("procitali smo ime funkcije")
-            return p.možda_poziv(name)
+            return p.možda_poziv(name, param, mem)
+        
+        elif p > T.IME:
+            return p.azuriraj(param,mem)
+        
         else:
             p >> T.RETURN
             if name := p >= T.IME:
                 print( "vratit cemo ime")
-            nesto = Vrati(name, name.vrijednost() )
+            return Vrati(name, param, mem, tip)
             
-            return nesto
+    def azuriraj(p,param,mem): 
+        return nenavedeno
         
-    def unos(p):
-        if ime := p >= T.IME:
-            print( "Unijeli smo ime")
-        p >= T.EQUAL
-        if broj := p >= T.BROJ:
-            print( "Unesen je broj")
-            rt.mem[ime] = broj
-        return Unos(ime,broj)
+    def unos(p,param,mem):
+        tip_var = p >> {T.INT, T.NODE}
+        ime = p >> T.IME
+        p >> T.EQUAL
+        if p > T.CALL:
+            p >> T.CALL
+            vrijednost = p.unos_iz_funkcije(mem)
+            return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
 
-    def ispis(p):
+        elif vrijednost := p > T.BROJ:
+            return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
+        elif drugo_ime := p > T.IME:
+            return Unos(tip_var, ime, drugo_ime, mem, pregledaj = True)
+        return nenavedeno
+
+    def unos_iz_funkcije(p): pass    
+
+    def ispis(p, param, mem):
         p >= T.PRINT
         varijable = []
         p >= T.OPEN
         if varijabla := p >= T.IME:
             varijable.append(varijabla)
+        while p >= T.COLON:
+            varijabla = p >> T.IME
+            varijable.append(varijabla)
+        
         p >= T.CLOSED
-        return Ispis(varijable)
 
-    def petlja(p):
+        return Ispis(varijable, mem)
+
+    def petlja(p, tip, param, mem):
         krivo = SemantičkaGreška('greška u inicijalizaciji for petlje')
         p >= T.FOR
         p >= T.OPEN
-        if ime := p >= T.IME:
+        if ime_iteratora := p >= T.IME:
             print("okej")
         p >= T.EQUAL
         if donja_ograda := p>= T.BROJ:
@@ -255,53 +309,55 @@ class P(Parser):
         p >= T.SEMICOLON
         if gornja_ograda := p >= T.BROJ: print("Okej")
         p >= T.SEMICOLON
-        if (p >> T.IME) != ime: raise krivo
-        if p >= T.PLUSJ: inkrement = p >> T.BROJ
+        if (p >> T.IME) != ime_iteratora: raise krivo
+        elif p >= T.PLUSJ: inkrement = p >> T.BROJ
         p >> T.CLOSED
 
         if p >= T.COPEN:
             blok = []
             while not p >= T.CCLOSED:
-                blok.append(p.naredba())
+                blok.append(p.naredba(tip, param, mem))
         else:
-            blok = [p.naredba()]
+            blok = [p.naredba(tip, param, mem)]
         
-        return Petlja(ime, donja_ograda, gornja_ograda, inkrement, blok)
+        return Petlja(ime_iteratora, donja_ograda, gornja_ograda, inkrement, blok, mem)
 
 class Petlja(AST):
-    ime: 'IME'
+    ime_iteratora: 'IME'
     donja_ograda: 'BROJ'
     gornja_ograda: 'BROJ'
     inkrement: 'BROJ'
     blok: 'naredba*'
-
-    def izvrši(petlja, lokalni):
+    mem: 'lokalna memorija'
+    def izvrši(petlja):
         iter = petlja.ime
-        rt.mem[iter] = petlja.donja_ograda.vrijednost()
+        petlja.mem[iter]['vrijednost'] = petlja.donja_ograda.vrijednost()
         inc = petlja.inkrement.vrijednost(); 
 
-        while( rt.mem[iter] < petlja.gornja_ograda.vrijednost()):
+        while( petlja.mem[iter]['vrijednost'] < petlja.gornja_ograda.vrijednost()):
 
             for naredba in petlja.blok: 
-                naredba.izvrši(lokalni)
-            rt.mem[petlja.ime] += inc
+                naredba.izvrši()
+            petlja.mem[iter]['vrijednost'] += inc
         
 
 class Funkcija(AST):
+    tip: 'TIP'
     ime: 'IME'
-    parametri: 'IME*'
+    parametri: 'ULAZNI PARAM'
+    memorija: 'lokalna mem'
     tijelo: 'naredba'
-    def pozovi( funkcija, argumenti):
-        lokalni = Memorija(zip(funkcija.parametri, argumenti))
-        return (funkcija.tijelo.izvrši(lokalni))
+
+    def pozovi( funkcija):
+        return (funkcija.tijelo.izvrši())
 
 def izvrši(funkcije, *argv):
-    print('Program je vratio:', funkcije['main'].pozovi(argv))
+    print('Program je vratio:', funkcije['main'].pozovi())
 
 class Poziv(AST):
     funkcija: 'Funkcija'
     argumenti: '?'
-    def izvrši(poziv,lokalni):
+    def izvrši(poziv):
         pozvana = poziv.funkcija
         argumenti = [a.vrijednost() for a in poziv.argumenti]
         return pozvana.pozovi(argumenti)
@@ -310,51 +366,74 @@ class Poziv(AST):
 class Vrati(AST):
     nesto: 'IME'
     vrijednost : 'vri'
-    def izvrši(p, lokalni):
+    def izvrši(p):
         print("povratak " , p.vrijednost)
         return p.vrijednost.vrijednost()
 
-class Start(AST):
+class Blok(AST):
     naredbe: 'naredba*'
 
-    def izvrši(program, lokalni):
+    def izvrši(program):
         ret_val = None
         for naredba in program.naredbe:
-            ret_val = naredba.izvrši(lokalni)
+            ret_val = naredba.izvrši()
             if(ret_val): 
                 return ret_val
 
 class Unos(AST):
+    tip_var: 'TIP'
     ime: 'IME'
-    broj: 'BROJ'
+    drugo_ime: 'IME'
+    mem: 'lkalna mem'
+    pregledaj: 'bool'
 
-    def izvrši(unos, lokalni):
-        name = unos.ime
-        rt.mem[name] = unos.broj.vrijednost()
+    def izvrši(unos):
+        unos.mem[ime]['tip'] = unos.tip_var
+        if unos.pregledaj:
+            if unos.drugo_ime in unos.mem:
+                drugi_tip = unos.mem[ unos.drugo_ime]['tip']
+                if drugi_tip == unos.tip_var:
+                    unos.mem[unos.ime] = unos.mem[unos.drugo_ime]['vrijednost']
+                else:
+                    raise SemantičkaGreška()
+            else:
+                raise SemantičkaGreška()
+        else:
+            if isinstance(unos.drugo_ime, int ) and isinstance(unos.tip_var, T.INT):
+                unos.mem[unos.ime] = unos.mem[unos.drugo_ime]['vrijednost']
+            elif isinstance(unos.drugo_ime, tuple ) and isinstance(unos.tip_var, T.NODE) and len(unos.drugo_ime) == 2\
+                and type(unos.drugo_ime[0]) == int and type(unos.drugo_ime[0]) == int :
+
+                unos.mem[unos.ime] = unos.mem[unos.drugo_ime]['vrijednost']
+            else:
+                raise SemantičkaGreška()
+
 
 class Ispis(AST):
     varijable: 'IME*'
-    
-    def izvrši(ispis, lokalni):
+    mem: 'lokalna memorija'
+    def izvrši(ispis):
         for varijabla in ispis.varijable:
-            print(varijabla.vrijednost(), end='')
+            if varijabla in ispis.mem:
+                print(ispis.mem[varijabla]['vrijednost'], end='')
+            else:
+                # raise exeception 
+                pass
         print()
 
 
 ulaz=('''
-f(x){
-    x = 1
+int f(int x){
+    x = 2
     RETURN x
 }
-main(){
-    x = 5
+
+void main(){
+    int x = 5
     PRINT(x)
-    for(i = 1; 5; i+=1){
-        PRINT(i)}
-    CALL f(x)
-    RETURN x
+  
 }
 ''')
 lekser(ulaz)
 prikaz( kod := P(ulaz))
-izvrši(kod)
+#izvrši(kod)
