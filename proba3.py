@@ -98,8 +98,8 @@ def lekser(lex):
                     yield lex.token(T.VOID)
                 elif lex.sadržaj == 'int':
                     yield lex.token(T.INT)
-                elif lex.sadržaj == 'pair':
-                    yield lex.token(T.PAIR)
+                elif lex.sadržaj == 'node':
+                    yield lex.token(T.NODE)
                 else:
                     yield lex.token(T.IME)
             else:
@@ -271,15 +271,32 @@ class P(Parser):
         tip_var = p >> {T.INT, T.NODE}
         ime = p >> T.IME
         p >> T.EQUAL
-        if p > T.CALL:
-            p >> T.CALL
-            vrijednost = p.unos_iz_funkcije(mem)
-            return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
+        if tip_var ^ T.INT:
+            if p > T.CALL:
+                p >> T.CALL
+                vrijednost = p.unos_iz_funkcije(mem)
+                return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
 
-        elif vrijednost := p >= T.BROJ:
-            return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
-        elif drugo_ime := p >= T.IME:
-            return Unos(tip_var, ime, drugo_ime, mem, pregledaj = True)
+            elif vrijednost := p >= T.BROJ:
+                return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
+            elif drugo_ime := p >= T.IME:
+                return Unos(tip_var, ime, drugo_ime, mem, pregledaj = True)
+        elif tip_var ^ T.NODE:
+            if p > T.CALL:
+                p >> T.CALL
+                vrijednost = p.unos_iz_funkcije(mem)
+                return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
+
+            elif p >= T.OPEN:
+                ## tu treba prihvatiti i (1,2) i (x,y) i kombinacije
+                prva = p >> T.BROJ
+                p >> T.COLON
+                druga = p >> T.BROJ
+                p >> T.CLOSED
+                vrijednost = (prva, druga)
+                return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
+            elif drugo_ime := p >= T.IME:
+                return Unos(tip_var, ime, drugo_ime, mem, pregledaj = True)
         return nenavedeno
 
     def unos_iz_funkcije(p): pass    
@@ -384,8 +401,8 @@ class Blok(AST):
 class Unos(AST):
     tip_var: 'TIP'
     ime: 'IME'
-    drugo_ime: 'IME'
-    mem: 'lkalna mem'
+    drugo_ime: 'IME ili vrijednost'
+    mem: 'lokalna mem'
     pregledaj: 'bool'
 
     def izvrši(unos):
@@ -397,18 +414,17 @@ class Unos(AST):
             if unos.drugo_ime in unos.mem:
                 drugi_tip = unos.mem[ unos.drugo_ime]['tip']
                 if drugi_tip == unos.tip_var:
-                    unos.mem[unos.ime] = unos.mem[unos.drugo_ime]['vrijednost']
+                    unos.mem[unos.ime]['vrijednost'] = unos.mem[unos.drugo_ime]['vrijednost']
                 else:
-                    raise SemantičkaGreška()
+                    raise SemantičkaGreška('varijable nisu istog tipa i ne postoji implicitni cast')
             else:
-                raise SemantičkaGreška()
+                raise SemantičkaGreška('varijabla koju pridružuješ nije instancirana')
         else:
-            if unos.drugo_ime ^ T.BROJ and unos.tip_var ^ T.INT:
+            if isinstance(unos.drugo_ime, tuple ) and unos.tip_var ^ T.NODE:
                 unos.mem[unos.ime]['vrijednost'] = unos.drugo_ime
-            # elif isinstance(unos.drugo_ime, tuple ) and isinstance(unos.tip_var, T.NODE) and len(unos.drugo_ime) == 2\
-            #     and type(unos.drugo_ime[0]) == int and type(unos.drugo_ime[0]) == int :
-
-            #     unos.mem[unos.ime] = unos.mem[unos.drugo_ime]['vrijednost']
+            elif unos.drugo_ime ^ T.BROJ and unos.tip_var ^ T.INT:
+                unos.mem[unos.ime]['vrijednost'] = unos.drugo_ime
+            
             else:
                 raise SemantičkaGreška()
 
@@ -427,10 +443,12 @@ class Ispis(AST):
 
 ulaz=('''
 void main(){
-    int A = 10
-    int B = 5
-    PRINT(B)
-  
+    node B = (1,2)
+    node C = B
+    PRINT(C)
+    int x = 2
+    int y = x
+    PRINT(y)
 }
 ''')
 lekser(ulaz)
