@@ -199,6 +199,7 @@ class P(Parser):
         p >> T.COPEN
         lokalna_memorija_funkcije = Memorija()
         for ime in p.parametrif:
+            # za funkciju int f(int x) u lokalnoj memoriji će biti 
             tip_vrijednost = {'tip':p.parametrif[ime],'vrijednost':nenavedeno}
             lokalna_memorija_funkcije[ime] = tip_vrijednost
 
@@ -275,9 +276,9 @@ class P(Parser):
             vrijednost = p.unos_iz_funkcije(mem)
             return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
 
-        elif vrijednost := p > T.BROJ:
+        elif vrijednost := p >= T.BROJ:
             return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
-        elif drugo_ime := p > T.IME:
+        elif drugo_ime := p >= T.IME:
             return Unos(tip_var, ime, drugo_ime, mem, pregledaj = True)
         return nenavedeno
 
@@ -388,7 +389,10 @@ class Unos(AST):
     pregledaj: 'bool'
 
     def izvrši(unos):
-        unos.mem[ime]['tip'] = unos.tip_var
+        if(unos.ime.vrijednost() in unos.mem):
+            raise SemantičkaGreška('nije dozvoljena redeklaracija verijable')
+        unos.mem[unos.ime.vrijednost()] = {}
+        unos.mem[unos.ime.vrijednost()]['tip'] = unos.tip_var
         if unos.pregledaj:
             if unos.drugo_ime in unos.mem:
                 drugi_tip = unos.mem[ unos.drugo_ime]['tip']
@@ -399,12 +403,12 @@ class Unos(AST):
             else:
                 raise SemantičkaGreška()
         else:
-            if isinstance(unos.drugo_ime, int ) and isinstance(unos.tip_var, T.INT):
-                unos.mem[unos.ime] = unos.mem[unos.drugo_ime]['vrijednost']
-            elif isinstance(unos.drugo_ime, tuple ) and isinstance(unos.tip_var, T.NODE) and len(unos.drugo_ime) == 2\
-                and type(unos.drugo_ime[0]) == int and type(unos.drugo_ime[0]) == int :
+            if unos.drugo_ime ^ T.BROJ and unos.tip_var ^ T.INT:
+                unos.mem[unos.ime]['vrijednost'] = unos.drugo_ime
+            # elif isinstance(unos.drugo_ime, tuple ) and isinstance(unos.tip_var, T.NODE) and len(unos.drugo_ime) == 2\
+            #     and type(unos.drugo_ime[0]) == int and type(unos.drugo_ime[0]) == int :
 
-                unos.mem[unos.ime] = unos.mem[unos.drugo_ime]['vrijednost']
+            #     unos.mem[unos.ime] = unos.mem[unos.drugo_ime]['vrijednost']
             else:
                 raise SemantičkaGreška()
 
@@ -417,23 +421,18 @@ class Ispis(AST):
             if varijabla in ispis.mem:
                 print(ispis.mem[varijabla]['vrijednost'], end='')
             else:
-                # raise exeception 
-                pass
+                raise SemantičkaGreška('varijabla ne postoji') 
         print()
 
 
 ulaz=('''
-int f(int x){
-    x = 2
-    RETURN x
-}
-
 void main(){
-    int x = 5
-    PRINT(x)
+    int A = 10
+    int B = 5
+    PRINT(B)
   
 }
 ''')
 lekser(ulaz)
 prikaz( kod := P(ulaz))
-#izvrši(kod)
+izvrši(kod)
