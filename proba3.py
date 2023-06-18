@@ -237,7 +237,7 @@ class P(Parser):
         while not p >= T.CCLOSED:
             naredbe.append(p.naredba(tip, param, mem))
         return Blok(naredbe)
-    
+
     def naredba(p, tip, param, mem):
         if p > T.PRINT:
             return p.ispis(param, mem)
@@ -478,7 +478,7 @@ class Unos(AST):
 
     def izvrši(unos):
         if(unos.ime.vrijednost() in unos.mem):
-            raise SemantičkaGreška('nije dozvoljena redeklaracija verijable')
+            raise SemantičkaGreška('nije dozvoljena redeklaracija varijable')
         unos.mem[unos.ime.vrijednost()] = {}
         unos.mem[unos.ime.vrijednost()]['tip'] = unos.tip_var
         if unos.pregledaj:
@@ -511,7 +511,6 @@ class Ispis(AST):
                 raise SemantičkaGreška('varijabla ne postoji') 
         print()
 
-
 ulaz=('''
 int f(int x, int y){
     x = 8
@@ -525,11 +524,28 @@ int g( int x, int y ){
 void main(){
     int y = 1
     int x = 2
-    CALL f(y, x)
-    CALL g(y , x)
-    PRINT(x)
+
+    int y = 4
+    y = 3
+    y = x
+    PRINT(y)
+    C = (5,6)
+    PRINT(C)
 }
 ''')
-lekser(ulaz)
-prikaz( kod := P(ulaz))
-izvrši(kod)
+def test():
+    lekser(ulaz)
+    prikaz( kod := P(ulaz))
+    izvrši(kod)
+
+if __name__ == '__main__':
+    print('Želiš li raditi interaktivno (I) ili samo istestirati')
+    intp = input()
+    if intp == 'I':
+        while(1):
+            print("upiši novu naredbu")
+            inpt = input()
+            if(inpt == 'exit') : break
+            lekser(inpt)
+    else:
+        test()
