@@ -611,7 +611,7 @@ class UnosGrafa(AST):
                         print("susjedi= ",neighbours_key, neigh_values)
 
                 neighbours_dict[key] = temp_dict
-                unos.mem[unos.ime.vrijednost()] = neighbours_dict
+                unos.mem[unos.ime.vrijednost()]['nodovi'] = neighbours_dict
             '''
             print("probajmo isprintat memoriju od G")
             for key, values in unos.mem[unos.ime.vrijednost()].items():
@@ -630,16 +630,10 @@ class Ispis(AST):
     def izvrši(ispis):
         for varijabla in ispis.varijable:
             if varijabla in ispis.mem:
-                print("pronasli smo varijablu u memoriji")
-                print("varijabla.vrijednost()= ", varijabla.vrijednost())  # zasto ovo ne postoji u memoriji
-                print( len(ispis.mem[varijabla.vrijednost()]))
                 if ispis.mem[varijabla.vrijednost()]['tip'] ^ T.GRAPH:
-                #if varijabla ^ T.GRAPH:
-                    print("varijabla = ", varijabla)
-                    #print(ispis.mem[varijabla.vrijednost()])
+                    print(ispis.mem[varijabla.vrijednost()]['nodovi'], end='')
                 else:
-                    print("nista")
-                    #print(ispis.mem[varijabla]['vrijednost'], end='')
+                    print(ispis.mem[varijabla]['vrijednost'], end='')
             else:
                 raise SemantičkaGreška('varijabla ne postoji') 
         print()
@@ -653,6 +647,8 @@ void main(){
     node d = (2,3)
     graph G = a(b[2],c[5]),b(d[4]),c(b[2]),d(a[1]),;
     PRINT(G)
+    int f = 8
+    PRINT (f)
 }
 ''')
       
