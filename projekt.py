@@ -449,7 +449,7 @@ class P(Parser):
         p >= T.FOR
         p >= T.OPEN
 
-        p >= T.INT
+        tip_var = p >= T.INT
         if ime_iteratora := p >= T.IME:
             print("okej")
         p >= T.EQUAL
@@ -472,7 +472,7 @@ class P(Parser):
         else:
             blok = [p.naredba(tip, param, mem)]
         
-        return Petlja(ime_iteratora, donja_ograda, gornja_ograda, inkrement, blok, mem)
+        return Petlja(ime_iteratora, donja_ograda, gornja_ograda, inkrement, blok, mem, tip_var)
 
     ## računanje euklidske udaljenosti među nodovima
     def distance(p, tip, param, mem):
@@ -516,9 +516,12 @@ class Petlja(AST):
     inkrement: 'BROJ'
     blok: 'naredba*'
     mem: 'lokalna memorija'
+    tip_var : 'tip iteratora.'
     def izvrši(petlja):
-        iter = petlja.ime_iteratora
+        iter = petlja.ime_iteratora.vrijednost()
+        petlja.mem[iter] = {}
         petlja.mem[iter]['vrijednost'] = petlja.donja_ograda.vrijednost()
+        petlja.mem[iter]['tip'] = petlja.tip_var
         inc = petlja.inkrement.vrijednost(); 
 
         while( petlja.mem[iter]['vrijednost'] < petlja.gornja_ograda.vrijednost()):
@@ -835,6 +838,9 @@ void main(){
     node c = (2,3)
     node d = (2,3)
     node e = (9,9)
+    for (int i = 1 ; 7 ; i += 1){
+        PRINT(e)
+    }
     // print euklidske udaljenost među čvorovima
     DISTANCE (a, e)
     graph G = a(b[2],c[5],e[11]),b(d[4]),c(b[2]),d(a[1]),e(c[3]),;

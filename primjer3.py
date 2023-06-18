@@ -4,10 +4,6 @@
 
 
 primjer_3 = '''
-void p(){
-    int a = 7
-    PRINT (a)
-}
 void main(){
     node A = (2,2)
     node B = (4,8)
@@ -26,6 +22,10 @@ void main(){
 
     // pronalazak susjeda
     MATCH G(B)
+
+    for (int i = 1 ; 7 ; i +=1){
+        PRINT (i)
+    }
 
 }
 ''' 
