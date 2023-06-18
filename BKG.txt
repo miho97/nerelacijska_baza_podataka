@@ -1,45 +1,13 @@
-BESKONTEKSTNA GRAMATIKA
---------------------------------
-
-trebamo napisati beskontekstnu gramatiku
-
-## pocetna BKG
---------------
-program -> main |  funkcija program         # tu mozemo dodat proizvoljno mnogo funkcija prije ulaska u main
-funkcija -> ime OPEN parametri CLOSED  VOPEN TIJELO VCLOSED         # klasicna definicija funkcije
-parametri -> ime  |  parametri COLON ime
-TIJELO   ->  deklaracija TIJELO | NAREDBA
-main  -> deklaracija main | NAREDBA main | NAREDBA
-NAREDBA  ->  petlja  |  grananje  | ....
-petlja   ->  for VOPEN  NAREDBA VCLOSED
-for   ->  FOR OPEN IME# EQUAL BROJ SEMICOLON IME# LESS BROJ SEMICOLON CLOSED
-
-
-
-
-
-IDEJA IZGLEDA JEZIKA
----------------------------------
-
-duljina( param a){
-    int duljina = 0
-    for( i=0; i<10){
-
-    }
-
-}
-
-fja2( graf A){
-   ispisi( A)
-}
-
-najkraci( graf A){
-
-}
-
-main(){
-
-
-
-
-}
+### pocetna BKG
+##  program -> main |  funkcija program         # tu mozemo dodat proizvoljno mnogo funkcija prije ulaska u main
+##  funkcija -> ime OPEN parametri CLOSED  COPEN blok CCLOSED         # klasicna definicija funkcije
+##  parametri -> tip ime  |  parametri COLON tip ime
+##  blok   ->  deklaracija blok | NAREDBA
+##  NAREDBA  ->  unos | mozda_poziv | azuriraj | match | path | ispis_u_datoteku | vrati | petlja  |  ispis
+##  petlja   ->  for  COPEN  NAREDBA CCLOSED
+##  for   ->  FOR OPEN IME# EQUAL BROJ SEMICOLON IME# LESS BROJ SEMICOLON inkrement CLOSED
+##  inkrement -> PLUSJ BROJ
+##  ispis ->  PRINT  OPEN varijabla CLOSED
+##  match -> ime OPEN ime CLOSED
+##  path -> ime OPEN ime COLON ime CLOSED
+##  ispis_u_datoteku -> GRAPH put_do_datoteke
