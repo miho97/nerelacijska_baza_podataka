@@ -4,6 +4,9 @@
 from vepar import *
 #from backend import *
 
+## ugly global variables
+interaktivan_rad = False
+rt.mem = Memorija()  # GLOBALNA MEMORIJA AKO CE NAM TREBATI
 
 class T(TipoviTokena):
 
@@ -164,12 +167,14 @@ def lekser(lex):
 
 class P(Parser):
     def program(p):
-        rt.mem = Memorija()  # GLOBALNA MEMORIJA AKO CE NAM TREBATI
-        p.funkcije = Memorija( redefinicija=False)
-        while not p > KRAJ:
-            funkcija = p.funkcija()
-            p.funkcije[funkcija.ime] = funkcija
-        return p.funkcije
+        if interaktivan_rad == False:
+            p.funkcije = Memorija( redefinicija=False)
+            while not p > KRAJ:
+                funkcija = p.funkcija()
+                p.funkcije[funkcija.ime] = funkcija
+            return p.funkcije
+        else: 
+            return p.interaktivna_funkcija(T.VOID, nenavedeno, rt.mem) 
     
     def ime(p) -> 'IME': return p >> T.IME
 
@@ -244,6 +249,9 @@ class P(Parser):
             naredbe.append(p.naredba(tip, param, mem))
         return Blok(naredbe)
 
+    def interaktivna_funkcija(p, tip, param, mem):
+        return Funkcija(tip, nenavedeno, param, mem,  Blok(p.naredba(tip, param, mem)))
+    
     def naredba(p, tip, param, mem):
         if p > T.PRINT:
             return p.ispis(param, mem)
@@ -438,6 +446,9 @@ class Funkcija(AST):
 def izvrši(funkcije, *argv):
     print('Program je vratio:', funkcije['main'].pozovi())
 
+def izvrši_interaktivno(funkcija, *argv):
+    print('Program je vratio:', funkcija.pozovi())
+
 class Poziv(AST):
     funkcija: 'Funkcija'
     ime: 'IME'
@@ -484,10 +495,16 @@ class Blok(AST):
 
     def izvrši(program):
         ret_val = None
-        for naredba in program.naredbe:
-            ret_val = naredba.izvrši()
+        if(interaktivan_rad == False):
+            for naredba in program.naredbe:
+                ret_val = naredba.izvrši()
+                if(ret_val): 
+                    return ret_val
+        else:
+            ret_val = program.naredbe.izvrši()
             if(ret_val): 
                 return ret_val
+
 
 class Ažuriraj(AST):
     ime : 'ime varijable'
@@ -645,6 +662,7 @@ void main(){
     node b = (2,3)
     node c = (2,3)
     node d = (2,3)
+    if( a == 5 ) 
     graph G = a(b[2],c[5]),b(d[4]),c(b[2]),d(a[1]),;
     PRINT(G)
     int f = 8
@@ -658,14 +676,25 @@ def test():
     prikaz( kod := P(ulaz))
     izvrši(kod)
 
+help_me = 'Ovo je pomoć ...'
+
 if __name__ == '__main__':
     print('Želiš li raditi interaktivno (I) ili samo istestirati (T)')
     intp = input()
     if intp == 'I':
+        print("Dobrodošli u konzolu:")
+        print("Za pomoć u bilo kojem trenutku upišite help_me()")
+        interaktivan_rad = True
         while(1):
-            print("upiši novu naredbu")
+            print(">>>")
             inpt = input()
-            if(inpt == 'exit') : break
-            lekser(inpt)
+            if(inpt == 'exit') : exit()
+            elif (inpt == 'help_me()') : 
+                print(help_me)
+                continue
+            ## ovdje je namjerno izostavljen prikaz leksiranja i parsiranja kako
+            ## bi se izbjegla gužva u konzolu
+            kod = P(inpt)
+            izvrši_interaktivno(kod)
     else:
         test()
