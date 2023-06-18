@@ -42,7 +42,6 @@ class T(TipoviTokena):
     RETURN,AS = 'RETURN','AS'
     UNOSDAT, ISPISDAT = 'UNOSDAT', 'ISPISDAT'
     PATH = 'path'
-    FILEPATH = 'FILEPATH'
     FOR, IF, PRINT = 'for','if', 'print'
     VOID, NODE, INT, GRAPH= 'void', 'node','int', 'graph'   
     ULEFT ,URIGHT ='[',']'
@@ -67,6 +66,9 @@ class T(TipoviTokena):
 
     class BROJ(Token):
         def vrijednost(t): return int(t.sadržaj)
+    
+    class FILEPATH(Token):
+        def vrijednost(t): return str(t.sadržaj)
 
 @lexer
 def lekser(lex):
@@ -835,6 +837,7 @@ void main(){
     // print euklidske udaljenost među čvorovima
     DISTANCE (a, e)
     graph G = a(b[2],c[5],e[11]),b(d[4]),c(b[2]),d(a[1]),e(c[3]),;
+    ISPISDAT (G , "dat.txt")
     MATCH G(a)
     PATH G(b,e)
 }
