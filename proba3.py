@@ -258,6 +258,15 @@ class P(Parser):
             if name := p >> T.IME: print("procitali smo ime funkcije")
             return p.možda_poziv(name, mem)
         
+        elif p > T.MATCH:
+            p >> T.MATCH
+            ime_grafa = p >> T.IME
+            p >> T.OPEN
+            ime_vrha = p >> T.IME
+            nesto =  Match(param,ime_grafa, ime_vrha, mem)
+            p >> T.CLOSED   
+            return nesto
+        
         elif p > T.IME:
             return p.azuriraj(param,mem)
         
@@ -423,7 +432,29 @@ class Petlja(AST):
             for naredba in petlja.blok: 
                 naredba.izvrši()
             petlja.mem[iter]['vrijednost'] += inc
-        
+
+
+class Match(AST):
+    param: 'PARAMETRI'
+    ime_grafa: 'IME GRAFA'
+    ime_vrha: 'IME VRHA'
+    mem: 'LOKALNA MEMORIJA'
+
+    def izvrši(match):
+        if match.ime_grafa not in match.mem:
+            raise SemantičkaGreška('Ne postoji graf s tim imenom')
+        elif match.ime_vrha not in match.mem[ match.ime_grafa]['nodovi']:
+            print(match.ime_vrha.vrijednost())
+            raise SemantičkaGreška('Ne postoji vrh s tim imenom u danom grafu')
+        else: 
+            '''
+            for key,key2 in match.mem[ match.ime_grafa ]['nodovi'][match.ime_vrha]:
+                for new_key, value in match.mem[match.ime_grafa]['nodovi'][match.ime_vrha][key2]:
+                    print( "(",match.ime_vrha.vrijednost(),",", value,")=",new_key)
+            '''
+            for neighbours, weights in match.mem[match.ime_grafa]['nodovi'][match.ime_vrha].items():
+                print(neighbours, weights)
+               
 
 class Funkcija(AST):
     tip: 'TIP'
@@ -645,10 +676,9 @@ void main(){
     node b = (2,3)
     node c = (2,3)
     node d = (2,3)
-    graph G = a(b[2],c[5]),b(d[4]),c(b[2]),d(a[1]),;
-    PRINT(G)
-    int f = 8
-    PRINT (f)
+    node e = (9,9)
+    graph G = a(b[2],c[5],e[11]),b(d[4]),c(b[2]),d(a[1]),;
+    MATCH G(a)
 }
 ''')
       
