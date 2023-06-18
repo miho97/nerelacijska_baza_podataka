@@ -9,7 +9,7 @@ class T(TipoviTokena):
 
     MATCH, WITH, WHERE, CALL = 'MATCH','WITH','WHERE','CALL'
     RETURN,AS = 'RETURN','AS'
-
+    PATH = 'path'
     FOR, IF, PRINT = 'for','if', 'print'
     VOID, NODE, INT, GRAPH= 'void', 'node','int', 'graph'   
 
@@ -74,6 +74,8 @@ def lekser(lex):
                     yield lex.token(T.AS)
                 elif lex.sadržaj == 'PRINT':
                     yield lex.token(T.PRINT)
+                elif lex.sadžaj == 'PATH':
+                    yield lex.token(T.PATH)
 
                 else:
                     raise lex.greška('Naredba nije leksički podržana')
@@ -267,6 +269,16 @@ class P(Parser):
             p >> T.CLOSED   
             return nesto
         
+        elif p > T.PATH:
+            p >> T.PATH
+            ime_grafa = p >> T.IME
+            p >> T.OPEN
+            pocetni_vrh = p >> T.IME
+            p >> T.COLON
+            krajnji_vrh = p >> T.IME
+            p >> T.CLOSED
+            return Path(param, ime_grafa, pocetni_vrh, krajnji_vrh, mem)
+        
         elif p > T.IME:
             return p.azuriraj(param,mem)
         
@@ -433,6 +445,12 @@ class Petlja(AST):
                 naredba.izvrši()
             petlja.mem[iter]['vrijednost'] += inc
 
+class Path(AST):
+    param: 'Parametri'
+    ime_grafa: 'IME'
+    pocetni_vrh: 'IME'
+    krajnji_vrh: 'IME'
+    mem: 'LOKALNA MEMORIJA'
 
 class Match(AST):
     param: 'PARAMETRI'
@@ -453,7 +471,7 @@ class Match(AST):
                     print( "(",match.ime_vrha.vrijednost(),",", value,")=",new_key)
             '''
             for neighbours, weights in match.mem[match.ime_grafa]['nodovi'][match.ime_vrha].items():
-                print(neighbours, weights)
+                print("(", match.ime_vrha.vrijednost(),"," ,neighbours.vrijednost(),")= ", weights.vrijednost())
                
 
 class Funkcija(AST):
