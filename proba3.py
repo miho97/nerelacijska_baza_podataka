@@ -11,7 +11,7 @@ class T(TipoviTokena):
     RETURN,AS = 'RETURN','AS'
 
     FOR, IF, PRINT = 'for','if', 'print'
-    VOID,NODE, INT = 'void', 'node','int'   
+    VOID, NODE, INT, GRAPH= 'void', 'node','int', 'graph'   
 
     ULEFT ,URIGHT ='[]'
 
@@ -100,6 +100,8 @@ def lekser(lex):
                     yield lex.token(T.INT)
                 elif lex.sadržaj == 'node':
                     yield lex.token(T.NODE)
+                elif lex.sadržaj == 'graph':
+                    yield lex.token(T.GRAPH)
                 else:
                     yield lex.token(T.IME)
             else:
@@ -174,22 +176,22 @@ class P(Parser):
         trenutni_tip = p.tip_parametra()
 
         params = {}
-        trenutni_parametar = p >> { T.NODE, T.IME }
+        trenutni_parametar = p >> { T.NODE, T.IME , T.GRAPH}
         params[trenutni_parametar] = trenutni_tip
 
         while p >= T.COLON:
             trenutni_tip = p.tip_parametra()
-            trenutni_parametar = p >> { T.NODE, T.IME }
+            trenutni_parametar = p >> { T.NODE, T.IME, T.GRAPH }
             params[trenutni_parametar] = trenutni_tip
 
         p >> T.CLOSED
         return params
     
-    def tip_parametra(p) -> 'INT|NODE':
-        return p >> {T.INT, T.NODE}
+    def tip_parametra(p) -> 'INT|NODE|GRAPH':
+        return p >> {T.INT, T.NODE, T.GRAPH}
     
-    def tip_funkcije(p) -> 'INT|NODE|VOID':
-        return p >> {T.INT, T.NODE, T.VOID}
+    def tip_funkcije(p) -> 'INT|NODE|VOID|GRAPH':
+        return p >> {T.INT, T.NODE, T.VOID, T.GRAPH}
 
 
     def funkcija(p) -> 'Funkcija':
@@ -244,7 +246,7 @@ class P(Parser):
    
         elif p > T.FOR:
             return p.petlja(tip, param, mem)
-        elif p > {T.INT, T.NODE}: 
+        elif p > {T.INT, T.NODE, T.GRAPH}: 
             #p > T.IME
             return p.unos(param, mem)
         elif p > T.CALL:
@@ -298,7 +300,7 @@ class P(Parser):
             raise SemantičkaGreška('Ne postoji funkcija deklarirana tim imenom')  
 
     def unos(p,param,mem):
-        tip_var = p >> {T.INT, T.NODE}
+        tip_var = p >> {T.INT, T.NODE, T.GRAPH}
         ime = p >> T.IME
         p >> T.EQUAL
         if tip_var ^ T.INT:
@@ -328,6 +330,15 @@ class P(Parser):
                 return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
             elif drugo_ime := p >= T.IME:
                 return Unos(tip_var, ime, drugo_ime, mem, pregledaj = True)
+        elif tip_var ^ T.GRAPH:
+            if p >= T.OPEN:
+                nodovi = ()
+                while not p > T.CLOSED:
+                    novo = p >> T.IME
+                    nodovi = nodovi + (novo,)
+                    p >= T.COLON
+                p >> T.CLOSED
+                return UnosGrafa(tip_var, ime, nodovi, mem, pregledaj = True)
         return nenavedeno
 
     def ispis(p, param, mem):
@@ -521,10 +532,44 @@ class Unos(AST):
             elif isinstance(unos.drugo_ime, tuple ) and type(unos.drugo_ime) != T.BROJ and\
                 unos.tip_var ^ T.NODE:
                 unos.mem[unos.ime]['vrijednost'] = (unos.drugo_ime[0],unos.drugo_ime[1])
+            elif isinstance(unos.drugo_ime, tuple ) and type(unos.drugo_ime) != T.BROJ and\
+                unos.tip_var ^ T.GRAPH:
+                unos.mem[unos.ime]['vrijednost'] = unos.drugo_ime
             elif unos.drugo_ime ^ T.BROJ and unos.tip_var ^ T.INT:
                 unos.mem[unos.ime]['vrijednost'] = unos.drugo_ime
             else:
                 raise SemantičkaGreška('tipovi varijable i argumenta ne odgovaraju')
+
+class UnosGrafa(AST):
+    tip_var: 'TIP'
+    ime: 'IME'
+    nodovi: 'IME ili vrijednost'
+    mem: 'lokalna mem'
+    pregledaj: 'bool'
+
+    def izvrši(unos):
+        if(unos.ime.vrijednost() in unos.mem):
+            raise SemantičkaGreška('nije dozvoljena redeklaracija varijable')
+        unos.mem[unos.ime.vrijednost()] = {}
+        ## mora tip biti graf, ali zbog konzistentnosti neka ostane
+        unos.mem[unos.ime.vrijednost()]['tip'] = unos.tip_var
+        unos.mem[unos.ime.vrijednost()]['vrijednost'] = ()
+        unos.mem[unos.ime.vrijednost()]['nodovi'] = ()
+        ## pregledaj će sigurno biti True
+        if unos.pregledaj:
+            for node in unos.nodovi:
+                if node not in unos.mem:
+                    raise SemantičkaGreška('varijabla koju pridružuješ nije instancirana')
+                elif not unos.mem[node]['tip'] ^ T.NODE:
+                    raise SemantičkaGreška('grafu se smiju pridruživati samo već instancirani NODOVI')
+                else :
+                    unos.mem[unos.ime.vrijednost()]['vrijednost'] = unos.mem[unos.ime.vrijednost()]['vrijednost'] + \
+                        (unos.mem[node]['vrijednost'] ,)
+                    unos.mem[unos.ime.vrijednost()]['nodovi'] = unos.mem[unos.ime.vrijednost()]['nodovi'] + \
+                        (node,)
+        else:
+            raise SemantičkaGreška("nešto je gadno puklo")
+
 
 
 class Ispis(AST):
@@ -552,10 +597,12 @@ void h(int x){
     PRINT(x)
 }
 void main(){
-    int y = 1
-    node z = (1,2)
-    z = CALL f(y)
-    PRINT (z)
+    node a = (1,2)
+    node b = (2,3)
+    node c = (2,3)
+    node d = (2,3)
+    graph A = (a,b,c,d)
+    PRINT (A)
 }
 ''')
 def test():
