@@ -74,7 +74,7 @@ def lekser(lex):
                     yield lex.token(T.AS)
                 elif lex.sadržaj == 'PRINT':
                     yield lex.token(T.PRINT)
-                elif lex.sadžaj == 'PATH':
+                elif lex.sadržaj == 'PATH':
                     yield lex.token(T.PATH)
 
                 else:
@@ -452,6 +452,45 @@ class Path(AST):
     krajnji_vrh: 'IME'
     mem: 'LOKALNA MEMORIJA'
 
+    def izvrši(path):
+        if path.ime_grafa not in path.mem:
+            raise SemantičkaGreška('Ne postoji graf s tim imenom')
+        elif path.pocetni_vrh not in path.mem[ path.ime_grafa]['nodovi']:
+            raise SemantičkaGreška('Ne postoji vrh s tim imenom u danom grafu')    
+        elif path.krajnji_vrh not in path.mem[ path.ime_grafa ]['nodovi']:
+            raise SemantičkaGreška('Ne postoji vrh s tim imenom u danom grafu')
+        else:
+            queue =[]
+            distance = {}
+            predecessor = {}
+            visited = set()
+            temp_nodes = {}
+            broj_vrhova = 0
+            # spremimo graf jednostavnosti radi
+            for key, value in path.mem[path.ime_grafa]['nodovi'].items():
+                broj_vrhova +=1
+                temp_neighbours = {}
+                distance[ key.vrijednost()] = 1000
+                predecessor[key.vrijednost()] = ''
+                for neigh, weight in value.items():
+                    temp_neighbours[neigh.vrijednost()] = weight.vrijednost()
+                temp_nodes[key.vrijednost()] = temp_neighbours
+
+            distance[path.pocetni_vrh.vrijednost()] = 0
+            while( broj_vrhova > 1):
+                for key, value in path.mem[path.ime_grafa]['nodovi'].items():
+                    for neigh, weight in value.items():
+                        if distance[key.vrijednost()] + weight.vrijednost() < distance[neigh.vrijednost()]:
+                            distance[neigh.vrijednost()] = distance[key.vrijednost()] + weight.vrijednost()
+                            predecessor[neigh.vrijednost()] = key.vrijednost()
+                broj_vrhova = broj_vrhova-1
+            kreni = path.krajnji_vrh.vrijednost()
+            print( kreni, ",")
+            while(kreni != path.pocetni_vrh.vrijednost()):
+                print( predecessor[kreni] )
+                kreni = predecessor[kreni]
+            
+
 class Match(AST):
     param: 'PARAMETRI'
     ime_grafa: 'IME GRAFA'
@@ -462,7 +501,6 @@ class Match(AST):
         if match.ime_grafa not in match.mem:
             raise SemantičkaGreška('Ne postoji graf s tim imenom')
         elif match.ime_vrha not in match.mem[ match.ime_grafa]['nodovi']:
-            print(match.ime_vrha.vrijednost())
             raise SemantičkaGreška('Ne postoji vrh s tim imenom u danom grafu')
         else: 
             '''
@@ -695,8 +733,9 @@ void main(){
     node c = (2,3)
     node d = (2,3)
     node e = (9,9)
-    graph G = a(b[2],c[5],e[11]),b(d[4]),c(b[2]),d(a[1]),;
+    graph G = a(b[2],c[5],e[11]),b(d[4]),c(b[2]),d(a[1]),e(c[3]),;
     MATCH G(a)
+    PATH G(a,d)
 }
 ''')
       
