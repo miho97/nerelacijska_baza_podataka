@@ -7,7 +7,7 @@ from vepar import *
 
 class T(TipoviTokena):
 
-    MATCH, WITH, WHERE, CALL = 'MATCH','WITH','WHERE','CALL'
+    MATCH, WITH, WHERE, CALL, INTERACTIVE = 'MATCH','WITH','WHERE','CALL', 'IACTIVE'
     RETURN,AS = 'RETURN','AS'
 
     FOR, IF, PRINT = 'for','if', 'print'
@@ -72,6 +72,8 @@ def lekser(lex):
                     yield lex.token(T.RETURN)
                 elif lex.sadržaj == 'AS':
                     yield lex.token(T.AS)
+                elif lex.sadržaj == 'IACTIVE':
+                    yield lex.token(T.INTERACTIVE)
                 elif lex.sadržaj == 'PRINT':
                     yield lex.token(T.PRINT)
 
@@ -162,8 +164,10 @@ class P(Parser):
     def program(p):
         rt.mem = Memorija()  # GLOBALNA MEMORIJA AKO CE NAM TREBATI
         p.funkcije = Memorija( redefinicija=False)
+        print(f"funckija {p}")
         while not p > KRAJ:
             funkcija = p.funkcija()
+            print(f"funckija {funkcija}")
             p.funkcije[funkcija.ime] = funkcija
         return p.funkcije
     
@@ -190,12 +194,13 @@ class P(Parser):
     def tip_parametra(p) -> 'INT|NODE|GRAPH':
         return p >> {T.INT, T.NODE, T.GRAPH}
     
-    def tip_funkcije(p) -> 'INT|NODE|VOID|GRAPH':
-        return p >> {T.INT, T.NODE, T.VOID, T.GRAPH}
+    def tip_funkcije(p) -> 'INT|NODE|VOID|GRAPH|INTERACTIVE':
+        return p >> {T.INT, T.NODE, T.VOID, T.GRAPH, T.INTERACTIVE}
 
 
     def funkcija(p) -> 'Funkcija':
         #atributi = p.imef, p.parametrif = p.ime(), p.parametri()
+        print(p)
         atributi = p.tipf, p.imef, p.parametrif = p.tip_funkcije(), p.ime(), p.parametri()
 
         p >> T.COPEN
@@ -257,12 +262,20 @@ class P(Parser):
         elif p > T.IME:
             return p.azuriraj(param,mem)
         
+        elif p > T.INTERACTIVE:
+            return p.user_interaction(mem)
+        
         else:
             p >> T.RETURN
             if name := p >= T.IME:
                 print( "vratit cemo ime")
             return Vrati(name, param, mem, tip)
-            
+
+    def user_interaction(p, mem) -> 'UserInteraction':
+        print("here")
+        p >> T.INTERACTIVE
+        return UserInteraction() # go to AST
+      
     ## ova funkcija služi za update pojedine varijable
     ## obzirom da ne možemo u ovoj fazi zaključiti koji je tip varijable kojoj nešto pridružujemo jer se ne čuva u globalnoj već u lokalnoj 
     ## memoriji, a ime ne nosi informaciju u tipu varijable pojedine funkcije greška u pridruživanju bit će ona u runtimeu
@@ -300,7 +313,7 @@ class P(Parser):
             raise SemantičkaGreška('Ne postoji funkcija deklarirana tim imenom')  
 
     def unos(p,param,mem):
-        tip_var = p >> {T.INT, T.NODE, T.GRAPH}
+        tip_var = p >> {T.INT, T.NODE, T.GRAPH, T.INTERACTIVE}
         ime = p >> T.IME
         p >> T.EQUAL
         if tip_var ^ T.INT:
@@ -380,6 +393,17 @@ class P(Parser):
         
         return Petlja(ime_iteratora, donja_ograda, gornja_ograda, inkrement, blok, mem)
 
+def izvrši(funkcije, *argv):
+    print('Program je vratio:', funkcije['main'].pozovi())
+
+class UserInteraction(AST):
+   
+    def izvrši(mem=None):
+    #  input from a terminal
+        statement = input(f' Unesi sljedecu naredbu:')
+        print(statement)
+
+
 class Petlja(AST):
     ime_iteratora: 'IME'
     donja_ograda: 'BROJ'
@@ -397,7 +421,8 @@ class Petlja(AST):
             for naredba in petlja.blok: 
                 naredba.izvrši()
             petlja.mem[iter]['vrijednost'] += inc
-        
+
+
 
 class Funkcija(AST):
     tip: 'TIP'
@@ -408,9 +433,6 @@ class Funkcija(AST):
 
     def pozovi( funkcija):
         return (funkcija.tijelo.izvrši())
-
-def izvrši(funkcije, *argv):
-    print('Program je vratio:', funkcije['main'].pozovi())
 
 class Poziv(AST):
     funkcija: 'Funkcija'
@@ -500,6 +522,7 @@ class Ažuriraj(AST):
                 raise SemantičkaGreška('varijabla i vrijednost nisu istog tipa')
 
 class Unos(AST):
+    
     tip_var: 'TIP'
     ime: 'IME'
     drugo_ime: 'IME ili vrijednost'
@@ -507,6 +530,7 @@ class Unos(AST):
     pregledaj: 'bool'
 
     def izvrši(unos):
+        # mem[unos.ime] = input(f'Unesi {unos} brojeva: ')
         if(unos.ime.vrijednost() in unos.mem):
             raise SemantičkaGreška('nije dozvoljena redeklaracija varijable')
         unos.mem[unos.ime.vrijednost()] = {}
@@ -571,7 +595,6 @@ class UnosGrafa(AST):
             raise SemantičkaGreška("nešto je gadno puklo")
 
 
-
 class Ispis(AST):
     varijable: 'IME*'
     mem: 'lokalna memorija'
@@ -583,41 +606,242 @@ class Ispis(AST):
                 raise SemantičkaGreška('varijabla ne postoji') 
         print()
 
+# node f(int x){
+#     x = 8
+#     node A = (2,1)
+#     RETURN A
+# }
+# int ha(node A){
+#     PRINT(A)
+#     int z = 5
+#     RETURN z
+# }
+# int g( int x, int y ){
+#     CALL f(x)
+#     PRINT(x)
+# }
+# void h(int x){
+#     PRINT(x)
+# }
+# void main(){
+#     node a = (1,2)
+#     node b = (2,3)
+#     node c = (2,3)
+#     node d = (2,3)
+#     int x = 2
+#     //PRINT(x)
+#     //CALL f(x)
+#     CALL ha(d)
+#     graph A = (a,b,c,d)
+#     PRINT (A)
+# }
 ulaz=('''
-node f(int x){
-    x = 8
-    node A = (2,1)
-    RETURN A
-}
-int g( int x, int y ){
-    CALL f(x, y)
-    PRINT(x)
-}
-void h(int x){
-    PRINT(x)
+int f(node A){
+    PRINT(A)
+    int z = 5 
+    RETURN z
 }
 void main(){
-    node a = (1,2)
-    node b = (2,3)
-    node c = (2,3)
-    node d = (2,3)
-    graph A = (a,b,c,d)
-    PRINT (A)
+
+    IACTIVE
 }
+
 ''')
+    #       int x = 5
+    # PRINT(x)
+    # node b = (2,3)
+    # CALL f(b)
+    # x = 3
 def test():
     lekser(ulaz)
     prikaz( kod := P(ulaz))
     izvrši(kod)
+# test()
+class Environment:
+    def __init__(self):
+        self.variables = {}
+
+    def set_variable(self, name, value):
+        self.variables[name] = value
+
+    def get_variable(self, name):
+        return self.variables.get(name, None)
 
 if __name__ == '__main__':
     print('Želiš li raditi interaktivno (I) ili samo istestirati (T)')
-    intp = input()
-    if intp == 'I':
-        while(1):
+    mode = input()
+    env = Environment()
+    if mode == 'I':
+        while True:
             print("upiši novu naredbu")
-            inpt = input()
-            if(inpt == 'exit') : break
-            lekser(inpt)
+            command = input()
+            if command == 'exit': 
+                break
+            try:
+                prikaz(program := P(command)) 
+                izvrši(program)
+                
+            except SintaksnaGreška:
+                try:
+                    # if that fails, try parsing as a statement
+                    lekser(command)
+                    prikaz(program := P(command))
+                    izvrši(program)
+                except SintaksnaGreška:
+                    print("Invalid input!")
     else:
         test()
+
+# if __name__ == '__main__':
+#     print('Želiš li raditi interaktivno (I) ili samo istestirati (T)')
+#     intp = input()
+#     if intp == 'I':
+#         while(1):
+#             print("upiši novu naredbu")
+#             inpt = input()
+#             if(inpt == 'exit') : break
+#             lekser(inpt)
+#     else:
+#         test()
+
+
+# def append_to_file(user_input, is_function=False):
+#     # text datoteka otvorena za citanje
+#     with open('main.txt', 'r') as f:
+#         lines = f.readlines()
+
+#     # funckija zapocinje s void main() pa trazimo index na kojem pocinje
+#     # ukoliko zapocinje s int main() i sl., zamijenit donji uvjet -> tipa sa switch i sl naredbom 
+#     main_start_index = None
+#     for i, line in enumerate(lines):
+#         if line.strip().startswith('void main()'):
+#             main_start_index = i
+#             break
+
+#     if main_start_index is None:
+#         print("Ne mogu naći početak main funkcije.")
+#         return
+
+#     # nove naredbe su tocno iznad main funkcije
+#     if is_function:
+#         lines.insert(main_start_index, user_input + '\n')
+#     else:
+#         # stavljamo izraz/poziv/print i sl. u main funkciju na sami kraj (prije })
+#         main_end_index = None
+#         for i, line in reversed(list(enumerate(lines))):
+#             if line.strip() == '}':
+#                 main_end_index = i
+#                 break
+
+#         if main_end_index is None:
+#             print("Ne mogu nać kraj main funkcije.")
+#             return
+
+#         # uvucena naredba usera
+#         lines[main_end_index] = '    ' + user_input + '\n}\n'
+
+#     # dodaj naredbu u file
+#     with open('main.txt', 'w') as f:
+#         f.writelines(lines)
+
+# def clear_file(main_signature='void main() {}'):
+#     # Open the file in write mode, which will clear out its contents
+#     with open('main.txt', 'w') as f:
+#         # Write the main_signature to the file
+#         f.write(main_signature + '\n')
+
+
+# # def interactive_mode():
+# #     print('Želiš li raditi interaktivno (I) ili samo istestirati (T).')
+# #     print('Naredbom "clear" brises sve funkcije i vrijednosti unutar datoteke, a naredbom exit zaustavljas program')
+# #     intp = input()
+# #     if intp == 'I':
+# #         while True:
+# #             is_function = input("Želite li unijet funckiju? (da/ne): ").lower() == 'da' # true or false, depending on user input
+# #             if is_function == 'exit': 
+# #                 break
+# #             user_input = input("Upiši novu naredbu: ")
+# #             if user_input.lower() == 'exit':
+# #                 break
+# #             elif user_input.lower() == 'clear':
+# #                 clear_file()
+# #                 continue
+
+# #             # dodaj naredbu u file ovisno o tome je li naredba funkcija ili ne 
+# #             append_to_file(user_input, is_function)
+
+# #             # citaj file td. se izleksira i isparsira
+# #             with open('main.txt', 'r') as f:
+# #                 code = f.read()
+
+# #             try:
+# #                 lekser(code)
+# #                 prikaz(kod := P(code))
+                
+# #                 izvrši(kod := P(code))
+# #             except Exception as e:
+# #                 print(f"Error prilikom izvršavanja naredbe: {e}")
+# #     else :
+# #         test()
+# def interactive_mode():
+#     print('Naredbom "clear" brises sve funkcije i vrijednosti unutar datoteke, a naredbom exit zaustavljas program')
+#     print('Želiš li raditi interaktivno (I) ili samo istestirati (T).')
+#     intp = input()
+#     if intp == 'I':
+#         while True:
+#             is_function = input("Želite li unijet funckiju? (da/ne): ").lower() == 'da'
+#             if is_function == 'exit':
+#                 break
+#             user_input = input("Upiši novu naredbu: ")
+#             if user_input.lower() == 'exit':
+#                 break
+#             elif user_input.lower() == 'clear':
+#                 clear_file()
+#                 continue
+
+#             # # Check the user input for correctness
+#             # try:
+#             #     # Parse and execute the user input (you may need to adjust this part based on how your lexer and parser work)
+#             #     lekser(user_input)
+#             #     print("here")
+#             #     kod = P(user_input)
+#             #     # izvrši(kod)
+                
+#             #     prikaz(kod)
+#             #     print("h2")
+#             #     # If no exception was thrown, add the user input to the file
+#             append_to_file(user_input, is_function)
+#             # except Exception as e:
+#             #     print(f"Error prilikom izvršavanja naredbe: {e}")
+#             # else:
+#                 # Read, parse and execute the file content after addition
+#             with open('main.txt', 'r') as f:
+#                 code = f.read()
+
+#             try:
+#                 lekser(code)
+#                 prikaz(kod := P(code))
+#                 izvrši(kod)
+#             except Exception as e:
+#                 print(f"Error prilikom izvršavanja naredbe: {e}")
+#     else :
+#         test()
+
+# interactive_mode()
+# # with open('main.txt', "r") as file:
+# #     data = file.read()
+
+# # print("unutar main.txt datoteke:")
+# # print(data)
+
+# class UnosInteraktivni(AST):
+#     ime: 'IME'
+   
+
+#     # def izvrši(unos,mem, lokalni):
+#     #     name = unos.ime
+#     #     rt.mem[name] = unos.broj.vrijednost()
+#     #  input from a terminal
+#     def izvrši(self, mem=None, unutar=None):
+#         print("here")
+#         mem[self.ime] = input(f'Unesi {self.broj} brojeva: ')

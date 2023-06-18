@@ -1,0 +1,9 @@
+void main(){
+    
+    int x = 5
+    PRINT(x)
+    int z = 9 PRINT(z)
+    x = 1
+    x = 8
+    PRINT(x)
+}
