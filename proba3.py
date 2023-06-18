@@ -214,25 +214,22 @@ class P(Parser):
     
     #def aritm(p):
 
-    def argumenti(p, parametri):
-        arg = []
-        p >> T.OPEN
-        for i, parametar in enumerate(parametri):
-            if i: p>> T.COLON
-            p >= T.IME
-            arg.append(parametar)
-        p >> T.CLOSED
-        return arg
+  
 
-    def možda_poziv(p,ime) -> 'Poziv|ime':
+    def možda_poziv(p,ime, mem) -> 'Poziv|ime':
+        p >> T.OPEN
+        lista_param = []
+        
+        while not p >= T.CLOSED:
+            varijabla = p >> T.IME
+            lista_param.append(varijabla)
+            p >= T.COLON
         if ime in p.funkcije:
         # if p.funkcije[ime] != nenavedeno:
             funkcija = p.funkcije[ime]
-            return Poziv(funkcija, p.argumenti(funkcija.parametri))
-        elif ime == p.imef:
-            return Poziv(nenavedeno, p.argumenti(p.parametrif))
-        else: return ime
-    
+            return Poziv(funkcija, ime, lista_param, mem)
+        else: 
+            raise SemantičkaGreška('Koristite nepostojeću funkciju')
      
     # sve_naredbe kao parametar primaju tip fje i parametar fje i vraca AST tijela te funkcije
     def sve_naredbe(p, tip, param, mem):
@@ -252,8 +249,8 @@ class P(Parser):
             return p.unos(param, mem)
         elif p > T.CALL:
             p >> T.CALL
-            if name := p >= T.IME: print("procitali smo ime funkcije")
-            return p.možda_poziv(name, param, mem)
+            if name := p >> T.IME: print("procitali smo ime funkcije")
+            return p.možda_poziv(name, mem)
         
         elif p > T.IME:
             return p.azuriraj(param,mem)
@@ -320,7 +317,13 @@ class P(Parser):
                 return Unos(tip_var, ime, drugo_ime, mem, pregledaj = True)
         return nenavedeno
 
-    def unos_iz_funkcije(p): pass    
+    def unos_iz_funkcije(p, mem):
+        ime_funkcije = p >= T.IME    
+        if ime_funkcije in p.funkcije:
+            pozvana = p.funkcije[ime_funkcije]
+            return pozvana.pozovi()
+        else:
+            raise SemantičkaGreška('Ne postoji funkcija deklarirana tim imenom')
 
     def ispis(p, param, mem):
         p >= T.PRINT
@@ -395,19 +398,39 @@ def izvrši(funkcije, *argv):
 
 class Poziv(AST):
     funkcija: 'Funkcija'
-    argumenti: '?'
+    ime: 'IME'
+    param: 'PARAMTERI'
+    mem: 'LOKALNA MEMORIJA majcinske funkcije'
+
     def izvrši(poziv):
         pozvana = poziv.funkcija
-        argumenti = [a.vrijednost() for a in poziv.argumenti]
-        return pozvana.pozovi(argumenti)
+        if ( len(pozvana.parametri) != len(poziv.param) ):
+            raise SintaksnaGreška('Broj parametra funkcije nije odgovarajuć')
+        i = 0
+        for iter in poziv.param:
+            if poziv.mem[iter]['tip'] != list(pozvana.parametri.items())[i][1]:
+                raise SemantičkaGreška('Tip parametra ne odgovara')
+            else:
+                pozvana.memorija[list(pozvana.parametri.items())[i][0]] = {}
+                pozvana.memorija[list(pozvana.parametri.items())[i][0]]['tip'] = list(pozvana.parametri.items())[i][1]
+                pozvana.memorija[list(pozvana.parametri.items())[i][0]]['vrijednost'] = poziv.mem[iter]['vrijednost']
+            i += 1
+        #argumenti = []
+        #for key, value in poziv.param.items():
+        #    par = (key, value)
+        #    argumenti.append(par)
+        return pozvana.pozovi()
 
         
 class Vrati(AST):
-    nesto: 'IME'
-    vrijednost : 'vri'
-    def izvrši(p):
-        print("povratak " , p.vrijednost)
-        return p.vrijednost.vrijednost()
+   
+    ime: 'IME varijable koju vracamo'
+    param: 'PARAMETRI'
+    mem: 'LOKALNA MEMORIJA'
+    tip: 'TIP'
+
+    def izvrši(vrati):pass
+        #return vrati.
 
 class Blok(AST):
     naredbe: 'naredba*'
@@ -490,16 +513,21 @@ class Ispis(AST):
 
 
 ulaz=('''
+int f(int x, int y){
+    x = 8
+    RETURN x
+}
+int g( int x, int y ){
+    CALL f(x, y)
+    PRINT(x)
+
+}
 void main(){
-    node B = (1,2)
-    node C = B
-    PRINT(C)
+    int y = 1
     int x = 2
-    int y = 4
-    y = 3
-    PRINT(y)
-    C = (5,6)
-    PRINT(C)
+    CALL f(y, x)
+    CALL g(y , x)
+    PRINT(x)
 }
 ''')
 lekser(ulaz)
