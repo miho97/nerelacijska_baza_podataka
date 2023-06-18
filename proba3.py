@@ -13,7 +13,7 @@ class T(TipoviTokena):
     FOR, IF, PRINT = 'for','if', 'print'
     VOID, NODE, INT, GRAPH= 'void', 'node','int', 'graph'   
 
-    ULEFT ,URIGHT ='[]'
+    ULEFT ,URIGHT ='[',']'
 
     DVOTOČKA = ':'
     ARROW = '->'
@@ -122,6 +122,10 @@ def lekser(lex):
             yield lex.token(T.COPEN)
         elif znak == '}':
             yield lex.token(T.CCLOSED)
+        elif znak == '[':
+            yield lex.token(T.ULEFT)
+        elif znak == ']':
+            yield lex.token(T.URIGHT)
         elif znak == ';':
             yield lex.token(T.SEMICOLON)
         elif znak == '/':   ## jednolinijski komentari neka budu oznaceni sa //
@@ -331,14 +335,36 @@ class P(Parser):
             elif drugo_ime := p >= T.IME:
                 return Unos(tip_var, ime, drugo_ime, mem, pregledaj = True)
         elif tip_var ^ T.GRAPH:
-            if p >= T.OPEN:
-                nodovi = ()
-                while not p > T.CLOSED:
-                    novo = p >> T.IME
-                    nodovi = nodovi + (novo,)
-                    p >= T.COLON
-                p >> T.CLOSED
-                return UnosGrafa(tip_var, ime, nodovi, mem, pregledaj = True)
+
+            if p > T.IME:
+                graf_dict = {}
+                while ime_nodea := p >= T.IME:
+                    trenutni_dict = {}
+                    #graf_dict = {}
+                    # trenutni_dict[ime_nodea] triba bit dict sa
+                    # graf[a][b] = 2
+                    p >= T.OPEN
+                    novi_susjed = p >> T.IME
+                    p >> T.ULEFT
+                    trenutna_tezina = p >> T.BROJ
+                    p >> T.URIGHT
+                    trenutni_dict[novi_susjed] = trenutna_tezina
+
+                    while  p > T.COLON:
+                        p >> T.COLON
+                        novi_susjed = p >> T.IME
+                        p >> T.ULEFT
+                        trenutna_tezina = p >> T.BROJ
+                        p >> T.URIGHT
+                        trenutni_dict[novi_susjed] = trenutna_tezina
+                    graf_dict[ime_nodea] = trenutni_dict
+                    p >> T.CLOSED
+                    p >> T.COLON
+                p >> T.SEMICOLON
+            else:
+                raise SemantičkaGreška('Prvo unosimo ime nodea za unos grafa')
+           
+            return UnosGrafa(tip_var, ime, graf_dict, mem, pregledaj = True)
         return nenavedeno
 
     def ispis(p, param, mem):
@@ -541,32 +567,58 @@ class Unos(AST):
                 raise SemantičkaGreška('tipovi varijable i argumenta ne odgovaraju')
 
 class UnosGrafa(AST):
-    tip_var: 'TIP'
-    ime: 'IME'
-    nodovi: 'IME ili vrijednost'
+    tip_var: 'TIP'   # u nasem slucaju mora biti tip graf
+    ime: 'IME grafa'  
+    graf_dict: 'RJECNIK GRAFA'
     mem: 'lokalna mem'
     pregledaj: 'bool'
+    # graf_dict[a][b] = 10
 
     def izvrši(unos):
-        if(unos.ime.vrijednost() in unos.mem):
+        #if(unos.ime.vrijednost() in unos.mem):
+        if ( unos.ime.vrijednost() in unos.mem):
             raise SemantičkaGreška('nije dozvoljena redeklaracija varijable')
         unos.mem[unos.ime.vrijednost()] = {}
+        #nesto_dict = {}
+        #nesto_dict['tip'] = unos.tip_var
+        unos.mem[unos.ime.vrijednost()]['tip']= unos.tip_var
+        #unos.mem[unos.ime.vrijednost()] = nesto_dict
         ## mora tip biti graf, ali zbog konzistentnosti neka ostane
-        unos.mem[unos.ime.vrijednost()]['tip'] = unos.tip_var
-        unos.mem[unos.ime.vrijednost()]['vrijednost'] = ()
-        unos.mem[unos.ime.vrijednost()]['nodovi'] = ()
         ## pregledaj će sigurno biti True
         if unos.pregledaj:
-            for node in unos.nodovi:
-                if node not in unos.mem:
-                    raise SemantičkaGreška('varijabla koju pridružuješ nije instancirana')
-                elif not unos.mem[node]['tip'] ^ T.NODE:
-                    raise SemantičkaGreška('grafu se smiju pridruživati samo već instancirani NODOVI')
-                else :
-                    unos.mem[unos.ime.vrijednost()]['vrijednost'] = unos.mem[unos.ime.vrijednost()]['vrijednost'] + \
-                        (unos.mem[node]['vrijednost'] ,)
-                    unos.mem[unos.ime.vrijednost()]['nodovi'] = unos.mem[unos.ime.vrijednost()]['nodovi'] + \
-                        (node,)
+            '''
+            print("printajmo graf dict")
+            for key, values in unos.graf_dict.items():
+                for neighbours_keys, neigh_values in values.items():
+                    print(key, neighbours_keys, neigh_values)
+            '''
+            neighbours_dict = {}
+
+            for key, values in unos.graf_dict.items():
+                if key not in unos.mem:
+                    raise SemantičkaGreška('varijabla koju pridružuješ nije istancirana')
+                temp_dict = {}
+
+                #neighbours_dict = {}
+                for neighbours_key, neigh_values in values.items():
+                   
+                    if neighbours_key not in unos.mem:
+                        raise SemantičkaGreška('varijabla koju pridružuješ nije istancirana')
+                    elif not unos.mem[neighbours_key]['tip'] ^ T.NODE:
+                        raise SemantičkaGreška('grafu se smiju pridruživati samo već instancirani NODOVI')
+                    else:
+                        temp_dict[neighbours_key] = neigh_values
+                        print("susjedi= ",neighbours_key, neigh_values)
+
+                neighbours_dict[key] = temp_dict
+                unos.mem[unos.ime.vrijednost()] = neighbours_dict
+            '''
+            print("probajmo isprintat memoriju od G")
+            for key, values in unos.mem[unos.ime.vrijednost()].items():
+                for neighbours_key, neigh_values in values.items():
+                    print(key, neighbours_key, neigh_values)
+            print(unos.mem[unos.ime.vrijednost()])
+            '''
         else:
             raise SemantičkaGreška("nešto je gadno puklo")
 
@@ -578,33 +630,33 @@ class Ispis(AST):
     def izvrši(ispis):
         for varijabla in ispis.varijable:
             if varijabla in ispis.mem:
-                print(ispis.mem[varijabla]['vrijednost'], end='')
+                print("pronasli smo varijablu u memoriji")
+                print("varijabla.vrijednost()= ", varijabla.vrijednost())  # zasto ovo ne postoji u memoriji
+                print( len(ispis.mem[varijabla.vrijednost()]))
+                if ispis.mem[varijabla.vrijednost()]['tip'] ^ T.GRAPH:
+                #if varijabla ^ T.GRAPH:
+                    print("varijabla = ", varijabla)
+                    #print(ispis.mem[varijabla.vrijednost()])
+                else:
+                    print("nista")
+                    #print(ispis.mem[varijabla]['vrijednost'], end='')
             else:
                 raise SemantičkaGreška('varijabla ne postoji') 
         print()
 
 ulaz=('''
-node f(int x){
-    x = 8
-    node A = (2,1)
-    RETURN A
-}
-int g( int x, int y ){
-    CALL f(x, y)
-    PRINT(x)
-}
-void h(int x){
-    PRINT(x)
-}
+
 void main(){
     node a = (1,2)
     node b = (2,3)
     node c = (2,3)
     node d = (2,3)
-    graph A = (a,b,c,d)
-    PRINT (A)
+    graph G = a(b[2],c[5]),b(d[4]),c(b[2]),d(a[1]),;
+    PRINT(G)
 }
 ''')
+      
+ulaz2 = ('a[2]')
 def test():
     lekser(ulaz)
     prikaz( kod := P(ulaz))
