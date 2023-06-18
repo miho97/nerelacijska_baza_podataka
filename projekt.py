@@ -449,6 +449,7 @@ class P(Parser):
         p >= T.FOR
         p >= T.OPEN
 
+        p >= T.INT
         if ime_iteratora := p >= T.IME:
             print("okej")
         p >= T.EQUAL
@@ -516,7 +517,7 @@ class Petlja(AST):
     blok: 'naredba*'
     mem: 'lokalna memorija'
     def izvrši(petlja):
-        iter = petlja.ime
+        iter = petlja.ime_iteratora
         petlja.mem[iter]['vrijednost'] = petlja.donja_ograda.vrijednost()
         inc = petlja.inkrement.vrijednost(); 
 
