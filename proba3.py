@@ -269,7 +269,9 @@ class P(Parser):
         p >> T.EQUAL
         if p > T.CALL:
             p >> T.CALL
-            vrijednost = p.unos_iz_funkcije(mem)
+            name = p >> T.IME
+            # vrijednost =  p.možda_poziv(name, mem)
+            vrijednost =  p.unos_iz_funkcije(name, mem)
             return Ažuriraj(ime, vrijednost, mem, pregledaj = False)
         elif vrijednost := p >= T.BROJ:
             return Ažuriraj(ime, vrijednost, mem, pregledaj = False)
@@ -284,7 +286,17 @@ class P(Parser):
             vrijednost = (prva, druga)
             return Ažuriraj(ime, vrijednost, mem, pregledaj = False)
         return nenavedeno
-        
+
+    def unos_iz_funkcije(p, name, mem):  
+        if name in p.funkcije:
+            pozvana = p.funkcije[name]
+            if(pozvana.tip ^ T.VOID ):
+                raise SemantičkaGreška('pozvana funkcije ne vraća povratnu vrijednost')
+            else:
+                return p.možda_poziv(name, mem)
+        else:
+            raise SemantičkaGreška('Ne postoji funkcija deklarirana tim imenom')  
+
     def unos(p,param,mem):
         tip_var = p >> {T.INT, T.NODE}
         ime = p >> T.IME
@@ -292,9 +304,9 @@ class P(Parser):
         if tip_var ^ T.INT:
             if p > T.CALL:
                 p >> T.CALL
-                vrijednost = p.unos_iz_funkcije(mem)
+                name = p >> T.IME
+                vrijednost = p.unos_iz_funkcije(name, mem)
                 return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
-
             elif vrijednost := p >= T.BROJ:
                 return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
             elif drugo_ime := p >= T.IME:
@@ -316,14 +328,6 @@ class P(Parser):
             elif drugo_ime := p >= T.IME:
                 return Unos(tip_var, ime, drugo_ime, mem, pregledaj = True)
         return nenavedeno
-
-    def unos_iz_funkcije(p, mem):
-        ime_funkcije = p >= T.IME    
-        if ime_funkcije in p.funkcije:
-            pozvana = p.funkcije[ime_funkcije]
-            return pozvana.pozovi()
-        else:
-            raise SemantičkaGreška('Ne postoji funkcija deklarirana tim imenom')
 
     def ispis(p, param, mem):
         p >= T.PRINT
@@ -429,8 +433,13 @@ class Vrati(AST):
     mem: 'LOKALNA MEMORIJA'
     tip: 'TIP'
 
-    def izvrši(vrati):pass
-        #return vrati.
+    def izvrši(vrati):
+        if(vrati.ime not in vrati.mem):
+            raise SemantičkaGreška("pokušavaš vratiti neinstanciranu varijablu")
+        elif(vrati.tip != vrati.mem[vrati.ime]['tip']):
+            raise SemantičkaGreška("povratna vrijednost varijable ne odgovara povratnom tipu funkcije")
+        else:
+            return vrati.mem[vrati.ime]['vrijednost']
 
 class Blok(AST):
     naredbe: 'naredba*'
@@ -462,6 +471,8 @@ class Ažuriraj(AST):
             else:
                 raise SemantičkaGreška('varijabla koju pridružuješ nije instancirana')
         else: ## pridruzujem novu varijablu
+            if(azuriraj.drugo_ime ^ Poziv):
+                azuriraj.drugo_ime = azuriraj.drugo_ime.izvrši()
             if isinstance(azuriraj.drugo_ime, tuple ) and trenutacni_tip ^ T.NODE:
                 azuriraj.mem[azuriraj.ime]['vrijednost'] = azuriraj.drugo_ime
             elif azuriraj.drugo_ime ^ T.BROJ and trenutacni_tip ^ T.INT:
@@ -491,6 +502,8 @@ class Unos(AST):
             else:
                 raise SemantičkaGreška('varijabla koju pridružuješ nije instancirana')
         else:
+            if(unos.drugo_ime ^ Poziv):
+                unos.drugo_ime = unos.drugo_ime.izvrši()
             if isinstance(unos.drugo_ime, tuple ) and unos.tip_var ^ T.NODE:
                 unos.mem[unos.ime]['vrijednost'] = unos.drugo_ime
             elif unos.drugo_ime ^ T.BROJ and unos.tip_var ^ T.INT:
@@ -512,25 +525,21 @@ class Ispis(AST):
         print()
 
 ulaz=('''
-int f(int x, int y){
+int f(int x){
     x = 8
     RETURN x
 }
 int g( int x, int y ){
     CALL f(x, y)
     PRINT(x)
-
+}
+void h(int x){
+    PRINT(x)
 }
 void main(){
     int y = 1
-    int x = 2
-
-    int y = 4
-    y = 3
-    y = x
-    PRINT(y)
-    C = (5,6)
-    PRINT(C)
+    int z = CALL f(y)
+    PRINT (z)
 }
 ''')
 def test():
@@ -539,7 +548,7 @@ def test():
     izvrši(kod)
 
 if __name__ == '__main__':
-    print('Želiš li raditi interaktivno (I) ili samo istestirati')
+    print('Želiš li raditi interaktivno (I) ili samo istestirati (T)')
     intp = input()
     if intp == 'I':
         while(1):
