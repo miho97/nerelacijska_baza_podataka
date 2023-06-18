@@ -12,6 +12,7 @@ class T(TipoviTokena):
 
     MATCH, WITH, WHERE, CALL = 'MATCH','WITH','WHERE','CALL'
     RETURN,AS = 'RETURN','AS'
+    UNOSDAT, ISPISDAT = 'UNOSDAT', 'ISPISDAT'
 
     FOR, IF, PRINT = 'for','if', 'print'
     VOID, NODE, INT, GRAPH= 'void', 'node','int', 'graph'   
@@ -26,6 +27,7 @@ class T(TipoviTokena):
     PLUS, PUTA, = '+*'
     EEQUAL = '=='
     PLUSJ = '+='
+    QUOTES = '"'
 
     # node A = f( B )
     # cuvanje koordinata vrhova grafa
@@ -34,11 +36,14 @@ class T(TipoviTokena):
             return zip(rt.mem[a], rt.mem[b])
         
     class IME(Token):
-        def vrijednost(t): return t.sadržaj
+        def vrijednost(t): return str(t.sadržaj)
         #def izvrši(ime,lokalni): return rt.mem[ime]
     class BROJ(Token):
         def vrijednost(t): return int(t.sadržaj)
     #class KEYWORD(Token):pass
+
+    class PATH(Token):
+        def vrijednost(t): return t.sadržaj
 
 
 
@@ -73,6 +78,10 @@ def lekser(lex):
                     yield lex.token(T.CALL)
                 elif lex.sadržaj == 'RETURN':
                     yield lex.token(T.RETURN)
+                elif lex.sadržaj == 'UNOSDAT':
+                    yield lex.token(T.UNOSDAT)
+                elif lex.sadržaj == 'ISPISDAT':
+                    yield lex.token(T.ISPISDAT)
                 elif lex.sadržaj == 'AS':
                     yield lex.token(T.AS)
                 elif lex.sadržaj == 'PRINT':
@@ -135,6 +144,12 @@ def lekser(lex):
             lex >> '/'
             lex - '\n'
             lex.zanemari()
+        elif znak == '"':
+            lex - '"'
+            # prvo = next(lex)
+            # while prvo != '"':
+            #     lex * str.isascii
+            yield lex.token(T.PATH)
         elif znak.isdecimal():
             lex.prirodni_broj(znak)
             yield lex.token(T.BROJ)
@@ -213,8 +228,6 @@ class P(Parser):
             # za funkciju int f(int x) u lokalnoj memoriji će biti 
             tip_vrijednost = {'tip':p.parametrif[ime],'vrijednost':nenavedeno}
             lokalna_memorija_funkcije[ime] = tip_vrijednost
-
-       
         return Funkcija(*atributi, lokalna_memorija_funkcije,  p.sve_naredbe(p.tipf, p.parametrif, lokalna_memorija_funkcije))
         #p >> T.CCLOSED
         #return nesto
@@ -241,6 +254,7 @@ class P(Parser):
             return Poziv(funkcija, ime, lista_param, mem)
         else: 
             raise SemantičkaGreška('Koristite nepostojeću funkciju')
+            return nenavedeno
      
     # sve_naredbe kao parametar primaju tip fje i parametar fje i vraca AST tijela te funkcije
     def sve_naredbe(p, tip, param, mem):
@@ -268,7 +282,14 @@ class P(Parser):
         
         elif p > T.IME:
             return p.azuriraj(param,mem)
+
+        elif p > T.ISPISDAT:
+            return p.ispisi_u_dat(param,mem)
         
+        elif p > T.UNOSDAT:
+            raise SintaksnaGreška("Unos iz datoteke u trenutačnoj verziji nije podržan")
+            return nenavedeno
+
         else:
             p >> T.RETURN
             if name := p >= T.IME:
@@ -300,6 +321,15 @@ class P(Parser):
             vrijednost = (prva, druga)
             return Ažuriraj(ime, vrijednost, mem, pregledaj = False)
         return nenavedeno
+
+    def ispisi_u_dat(p, param, mem):
+        p >> T.ISPISDAT
+        p >> T.OPEN
+        ime = p >> T.IME
+        p >> T.COLON
+        path = p >> T.PATH
+        p >> T.CLOSED
+        return ISPISDAT(ime, path, mem)
 
     def unos_iz_funkcije(p, name, mem):  
         if name in p.funkcije:
@@ -655,6 +685,38 @@ class Ispis(AST):
                 raise SemantičkaGreška('varijabla ne postoji') 
         print()
 
+class ISPISDAT(AST):
+    ime : 'ime grafa'
+    path : 'put do datoteke'
+    mem : 'lokalna memorija'
+
+    def izvrši(ispis):
+        if (ispis.ime not in ispis.mem):
+            raise SemantičkaGreška('dani graf ne postoji u memoriji')
+        if (not ispis.mem[ispis.ime.vrijednost()]['tip'] ^ T.GRAPH) :
+            raise SemantičkaGreška('dani argument nije graf')
+        path_datoteka = ispis.path.vrijednost().replace('"', '')
+        ispis.ispiši(path_datoteka)
+    
+    def ispiši(ispis, path):
+        try:
+            with open(path, 'w') as file:
+                # Ovdje možete pisati u datoteku
+                file.write("ISPISAN JE GRAF : " + ispis.ime.vrijednost() + "\n")
+                file.write("NJEGOVI NODOVI SU : \n")
+                for nod, value in ispis.mem[ispis.ime.vrijednost()]['nodovi'].items():
+                    file.write("\n" + nod.vrijednost() + "  ")
+                    file.write(" KOJI JE POVEZAN S : ")
+                    for susjed, vrijednost in value.items():
+                        file.write(susjed.vrijednost() + ":")
+                        file.write(str(vrijednost.vrijednost()) + " ")
+            file.close()
+        except IOError:
+            raise SemantičkaGreška("dan je neispravan put do datoteke")
+
+
+        
+
 ulaz=('''
 
 void main(){
@@ -662,11 +724,7 @@ void main(){
     node b = (2,3)
     node c = (2,3)
     node d = (2,3)
-    if( a == 5 ) 
-    graph G = a(b[2],c[5]),b(d[4]),c(b[2]),d(a[1]),;
-    PRINT(G)
     int f = 8
-    PRINT (f)
 }
 ''')
       
@@ -676,14 +734,26 @@ def test():
     prikaz( kod := P(ulaz))
     izvrši(kod)
 
-help_me = 'Ovo je pomoć ...'
+help_me = '''HELP : 
+Dobrodošli u help jezika GraphiC, jezik namijenjen obradi grafova i grafovskih baza podataka.
+Kroz ovu interaktivnu konzolu možete unositi pojedinačne naredbe koje podržava jezik.
+Primjeri poziva su inicijalizacija verijabli, pridruživanje vrijednosti varijablama, printanje varijabli,
+ispis grafa u datoteku i tako dalje.
+
+Neki od primjera atomarnih poziva kroz konzolu su :
+>>> int a = 5
+>>> int y = a
+>>> PRINT (a)
+>>> node z = (2,1)
+>>> node c = z
+'''
 
 if __name__ == '__main__':
     print('Želiš li raditi interaktivno (I) ili samo istestirati (T)')
     intp = input()
     if intp == 'I':
         print("Dobrodošli u konzolu:")
-        print("Za pomoć u bilo kojem trenutku upišite help_me()")
+        print("Za pomoć u bilo kojem trenutku upišite help_me(), za izlaz iz konzole upišite exit")
         interaktivan_rad = True
         while(1):
             print(">>>")
