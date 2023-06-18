@@ -460,7 +460,6 @@ class Path(AST):
         elif path.krajnji_vrh not in path.mem[ path.ime_grafa ]['nodovi']:
             raise SemantičkaGreška('Ne postoji vrh s tim imenom u danom grafu')
         else:
-            queue =[]
             distance = {}
             predecessor = {}
             visited = set()
@@ -485,11 +484,17 @@ class Path(AST):
                             predecessor[neigh.vrijednost()] = key.vrijednost()
                 broj_vrhova = broj_vrhova-1
             kreni = path.krajnji_vrh.vrijednost()
-            print( kreni, ",")
-            while(kreni != path.pocetni_vrh.vrijednost()):
-                print( predecessor[kreni] )
-                kreni = predecessor[kreni]
-            
+            if( path.pocetni_vrh.vrijednost() == path.krajnji_vrh.vrijednost() ):
+                print( "Najkraci put je duzine 0")
+            else:
+                print("Najkraci put (obrnuti redoslijed) = ", kreni, "-> ", end="")
+                while(kreni != path.pocetni_vrh.vrijednost()):
+                    if predecessor[kreni] == path.pocetni_vrh.vrijednost():
+                        print( predecessor[kreni], end="")
+                    else:
+                        print( predecessor[kreni], "-> ", end="" )
+                    kreni = predecessor[kreni]
+                print()
 
 class Match(AST):
     param: 'PARAMETRI'
