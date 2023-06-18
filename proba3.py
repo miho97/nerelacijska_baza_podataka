@@ -578,7 +578,8 @@ class Ispis(AST):
     def izvrši(ispis):
         for varijabla in ispis.varijable:
             if varijabla in ispis.mem:
-                print(ispis.mem[varijabla]['vrijednost'], end='')
+                if ispis.mem[varijabla]['tip'] ^ T.GRAPH:
+                    print(ispis.mem[varijabla]['vrijednost'], end='')
             else:
                 raise SemantičkaGreška('varijabla ne postoji') 
         print()
