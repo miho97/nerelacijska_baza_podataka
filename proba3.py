@@ -487,12 +487,12 @@ class Path(AST):
             if( path.pocetni_vrh.vrijednost() == path.krajnji_vrh.vrijednost() ):
                 print( "Najkraci put je duzine 0")
             else:
-                print("Najkraci put (obrnuti redoslijed) = ", kreni, "-> ", end="")
+                print("Najkraci put (obrnuti redoslijed) = ", kreni, "<- ", end="")
                 while(kreni != path.pocetni_vrh.vrijednost()):
                     if predecessor[kreni] == path.pocetni_vrh.vrijednost():
                         print( predecessor[kreni], end="")
                     else:
-                        print( predecessor[kreni], "-> ", end="" )
+                        print( predecessor[kreni], "<- ", end="" )
                     kreni = predecessor[kreni]
                 print()
 
@@ -740,7 +740,7 @@ void main(){
     node e = (9,9)
     graph G = a(b[2],c[5],e[11]),b(d[4]),c(b[2]),d(a[1]),e(c[3]),;
     MATCH G(a)
-    PATH G(a,d)
+    PATH G(b,e)
 }
 ''')
       
