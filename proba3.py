@@ -314,7 +314,8 @@ class P(Parser):
         elif tip_var ^ T.NODE:
             if p > T.CALL:
                 p >> T.CALL
-                vrijednost = p.unos_iz_funkcije(mem)
+                name = p >> T.IME
+                vrijednost = p.unos_iz_funkcije(name, mem)
                 return Unos(tip_var, ime, vrijednost, mem, pregledaj = False)
 
             elif p >= T.OPEN:
@@ -439,7 +440,7 @@ class Vrati(AST):
         elif(vrati.tip != vrati.mem[vrati.ime]['tip']):
             raise SemantičkaGreška("povratna vrijednost varijable ne odgovara povratnom tipu funkcije")
         else:
-            return vrati.mem[vrati.ime]['vrijednost']
+            return vrati.mem[vrati.ime]
 
 class Blok(AST):
     naredbe: 'naredba*'
@@ -471,11 +472,18 @@ class Ažuriraj(AST):
             else:
                 raise SemantičkaGreška('varijabla koju pridružuješ nije instancirana')
         else: ## pridruzujem novu varijablu
-            if(azuriraj.drugo_ime ^ Poziv):
+            if(isinstance(azuriraj.drugo_ime, Poziv)):
                 azuriraj.drugo_ime = azuriraj.drugo_ime.izvrši()
-            if isinstance(azuriraj.drugo_ime, tuple ) and trenutacni_tip ^ T.NODE:
+                if(azuriraj.drugo_ime['tip'] ^ T.BROJ and trenutacni_tip ^ T.INT):
+                    azuriraj.mem[azuriraj.ime]['vrijednost'] = azuriraj.drugo_ime['vrijednost']
+                elif(azuriraj.drugo_ime['tip'] ^ T.NODE and trenutacni_tip ^ T.NODE):
+                    azuriraj.mem[azuriraj.ime]['vrijednost'] = azuriraj.drugo_ime['vrijednost']
+                else:
+                    raise SemantičkaGreška('tipovi varijable i argumenta ne odgovaraju')
+            elif isinstance(azuriraj.drugo_ime, tuple ) and type(azuriraj.drugo_ime) != T.BROJ \
+                and trenutacni_tip ^ T.NODE:
                 azuriraj.mem[azuriraj.ime]['vrijednost'] = azuriraj.drugo_ime
-            elif azuriraj.drugo_ime ^ T.BROJ and trenutacni_tip ^ T.INT:
+            elif azuriraj.drugo_ime ^T.BROJ and trenutacni_tip ^ T.INT:
                 azuriraj.mem[azuriraj.ime]['vrijednost'] = azuriraj.drugo_ime
             else:
                 raise SemantičkaGreška('varijabla i vrijednost nisu istog tipa')
@@ -502,15 +510,21 @@ class Unos(AST):
             else:
                 raise SemantičkaGreška('varijabla koju pridružuješ nije instancirana')
         else:
-            if(unos.drugo_ime ^ Poziv):
+            if(isinstance(unos.drugo_ime, Poziv)):
                 unos.drugo_ime = unos.drugo_ime.izvrši()
-            if isinstance(unos.drugo_ime, tuple ) and unos.tip_var ^ T.NODE:
-                unos.mem[unos.ime]['vrijednost'] = unos.drugo_ime
+                if(unos.drugo_ime['tip']  ^ T.BROJ and unos.tip_var ^ T.INT):
+                    unos.mem[unos.ime]['vrijednost'] = unos.drugo_ime['vrijednost']
+                elif(unos.drugo_ime['tip'] ^ T.NODE and unos.tip_var ^ T.NODE):
+                    unos.mem[unos.ime]['vrijednost'] = unos.drugo_ime['vrijednost']
+                else:
+                    raise SemantičkaGreška('tipovi varijable i argumenta ne odgovaraju')
+            elif isinstance(unos.drugo_ime, tuple ) and type(unos.drugo_ime) != T.BROJ and\
+                unos.tip_var ^ T.NODE:
+                unos.mem[unos.ime]['vrijednost'] = (unos.drugo_ime[0],unos.drugo_ime[1])
             elif unos.drugo_ime ^ T.BROJ and unos.tip_var ^ T.INT:
                 unos.mem[unos.ime]['vrijednost'] = unos.drugo_ime
-            
             else:
-                raise SemantičkaGreška()
+                raise SemantičkaGreška('tipovi varijable i argumenta ne odgovaraju')
 
 
 class Ispis(AST):
@@ -525,9 +539,10 @@ class Ispis(AST):
         print()
 
 ulaz=('''
-int f(int x){
+node f(int x){
     x = 8
-    RETURN x
+    node A = (2,1)
+    RETURN A
 }
 int g( int x, int y ){
     CALL f(x, y)
@@ -538,7 +553,8 @@ void h(int x){
 }
 void main(){
     int y = 1
-    int z = CALL f(y)
+    node z = (1,2)
+    z = CALL f(y)
     PRINT (z)
 }
 ''')
