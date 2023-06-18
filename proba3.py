@@ -10,8 +10,8 @@ rt.mem = Memorija()  # GLOBALNA MEMORIJA AKO CE NAM TREBATI
 
 class T(TipoviTokena):
 
-    MATCH, WITH, WHERE, CALL = 'MATCH','WITH','WHERE','CALL'
-    RETURN,AS = 'RETURN','AS'
+    MATCH, WHERE, CALL, DISTANCE = 'MATCH', 'WHERE','CALL', 'DISTANCE'
+    RETURN= 'RETURN'
 
     FOR, IF, PRINT = 'for','if', 'print'
     VOID, NODE, INT, GRAPH= 'void', 'node','int', 'graph'   
@@ -77,7 +77,8 @@ def lekser(lex):
                     yield lex.token(T.AS)
                 elif lex.sadržaj == 'PRINT':
                     yield lex.token(T.PRINT)
-
+                elif lex.sadržaj == 'DISTANCE':
+                    yield lex.token(T.DISTANCE)
                 else:
                     raise lex.greška('Naredba nije leksički podržana')
 
@@ -199,8 +200,8 @@ class P(Parser):
     def tip_parametra(p) -> 'INT|NODE|GRAPH':
         return p >> {T.INT, T.NODE, T.GRAPH}
     
-    def tip_funkcije(p) -> 'INT|NODE|VOID|GRAPH':
-        return p >> {T.INT, T.NODE, T.VOID, T.GRAPH}
+    def tip_funkcije(p) -> 'INT|NODE|VOID|GRAPH|DISTANCE':
+        return p >> {T.INT, T.NODE, T.VOID, T.GRAPH, T.DISTANCE}
 
 
     def funkcija(p) -> 'Funkcija':
@@ -269,6 +270,9 @@ class P(Parser):
         elif p > T.IME:
             return p.azuriraj(param,mem)
         
+        elif p > T.DISTANCE:
+            return p.distance(tip,param,mem)
+
         else:
             p >> T.RETURN
             if name := p >= T.IME:
@@ -414,6 +418,36 @@ class P(Parser):
         
         return Petlja(ime_iteratora, donja_ograda, gornja_ograda, inkrement, blok, mem)
 
+    def distance(p, tip, param, mem):
+        p >> T.DISTANCE
+        p >> T.OPEN
+        varijable = []
+        if node1 := p >> T.IME:
+            varijable.append(node1)
+        p >> T.COLON
+        if node2 := p >> T.IME:
+            varijable.append(node2)
+        p >> T.CLOSED
+        return Distance(varijable,mem)
+
+class Distance(AST): 
+    varijable: 'varijable'
+    mem: 'mem'
+
+    def izvrši(self):
+        if (not self.varijable[0] in self.mem):
+            raise SemantičkaGreška("Proslijeđeni node ne postoji")
+        node1 = self.mem[self.varijable[0]]
+        node2 = self.mem[self.varijable[1]]
+        x1, y1 = node1['vrijednost']
+        x1 = x1.vrijednost()
+        y1 = y1.vrijednost()
+        x2, y2 = node2['vrijednost']
+        x2 = x2.vrijednost()
+        y2 = y2.vrijednost()
+        distance = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
+        print(f"euklidska vrijednost izmedu {self.varijable[0]} i {self.varijable[1]} je {distance}")
+    
 class Petlja(AST):
     ime_iteratora: 'IME'
     donja_ograda: 'BROJ'
@@ -669,13 +703,19 @@ void main(){
     PRINT (f)
 }
 ''')
-      
+ulaz1=('''
+void main(){
+    node b = (1,2)
+    node a = (4,2)
+    DISTANCE(a, b)
+}
+''')
 ulaz2 = ('a[2]')
 def test():
-    lekser(ulaz)
-    prikaz( kod := P(ulaz))
+    lekser(ulaz1)
+    prikaz( kod := P(ulaz1))
     izvrši(kod)
-
+# test()
 help_me = 'Ovo je pomoć ...'
 
 if __name__ == '__main__':
